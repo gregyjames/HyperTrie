@@ -52,10 +52,12 @@ jobs:
       
       - name: Make Script Executable (Unix)
         if: matrix.os != 'windows-latest'
+        shell: bash
         run: chmod +x ./build-rust.sh
       
       - name: Make Script Executable (Windows)
         if: matrix.os == 'windows-latest'
+        shell: pwsh
         run: |
           # Convert line endings to LF
           git config --global core.autocrlf false
@@ -63,13 +65,15 @@ jobs:
           git update-index --chmod=+x build-rust.sh
           git commit -m "Make build script executable" || true
       
-      - name: Build Rust Library
-        run: |
-          if [ "${{ matrix.os }}" == "windows-latest" ]; then
-            bash ./build-rust.sh --platforms ${{ matrix.platforms }}
-          else
-            ./build-rust.sh --platforms ${{ matrix.platforms }}
-          fi
+      - name: Build Rust Library (Unix)
+        if: matrix.os != 'windows-latest'
+        shell: bash
+        run: ./build-rust.sh --platforms ${{ matrix.platforms }}
+      
+      - name: Build Rust Library (Windows)
+        if: matrix.os == 'windows-latest'
+        shell: pwsh
+        run: bash ./build-rust.sh --platforms ${{ matrix.platforms }}
       
       - name: Upload Build Artifacts
         uses: actions/upload-artifact@v4
