@@ -7,16 +7,28 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        include:
+          - os: ubuntu-latest
+            targets: x86_64-unknown-linux-gnu,x86_64-apple-darwin,aarch64-apple-darwin
+            platforms: linux-x64,osx-x64,osx-arm64
+          - os: windows-latest
+            targets: x86_64-pc-windows-msvc,i686-pc-windows-msvc
+            platforms: windows-x64,windows-x86
+
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
       
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
         with:
-          targets: x86_64-pc-windows-msvc,i686-pc-windows-msvc,x86_64-unknown-linux-gnu,x86_64-apple-darwin,aarch64-apple-darwin
+          targets: ${{ matrix.targets }}
       
       - name: Install Windows MSVC
+        if: matrix.os == 'windows-latest'
         uses: ilammy/msvc-dev-cmd@v1
         with:
           arch: x64
@@ -29,7 +41,32 @@ jobs:
       - name: Build Rust Library
         run: |
           chmod +x ./build-rust.sh
-          ./build-rust.sh
+          ./build-rust.sh --platforms ${{ matrix.platforms }}
+      
+      - name: Upload Build Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: native-libs-${{ matrix.os }}
+          path: HyperTrieCore/target/release/
+          if-no-files-found: error
+
+  package:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Download Build Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: HyperTrieCore/target/release/
+          pattern: native-libs-*
+          merge-multiple: true
+      
+      - name: Install .NET SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
       
       - name: Build and Pack NuGet Package
         run: |
