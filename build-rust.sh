@@ -5,11 +5,9 @@ set -e
 ROOT_DIR=$(pwd)
 echo "Root directory: $ROOT_DIR"
 
-# Set RUSTFLAGS for required CPU features
-export RUSTFLAGS="-C target-cpu=native"
-
 # Install required targets
 rustup target add x86_64-pc-windows-msvc
+rustup target add i686-pc-windows-msvc
 rustup target add x86_64-unknown-linux-gnu
 rustup target add x86_64-apple-darwin
 rustup target add aarch64-apple-darwin
@@ -27,39 +25,38 @@ if [ ! -f "$ROOT_DIR/hypertrie/Cargo.toml" ]; then
     exit 1
 fi
 
+cd "$ROOT_DIR/hypertrie" || exit 1
+
 # Build for Windows x64
 echo "Building for Windows x64..."
-echo "Changing to directory: $ROOT_DIR/hypertrie"
-cd "$ROOT_DIR/hypertrie" || exit 1
 echo "Current directory: $(pwd)"
-echo "RUSTFLAGS: $RUSTFLAGS"
-cargo build --release --target x86_64-pc-windows-msvc
+RUSTFLAGS="-C target-feature=+aes,+sse2" cargo build --release --target x86_64-pc-windows-msvc
 cp target/x86_64-pc-windows-msvc/release/hypertrie.dll "$ROOT_DIR/HyperTrieCore/target/release/windows-x64/libhypertrie.dll"
 
 # Build for Windows x86
 echo "Building for Windows x86..."
 echo "Current directory: $(pwd)"
-cargo build --release --target i686-pc-windows-msvc
+RUSTFLAGS="-C target-feature=+aes,+sse2" cargo build --release --target i686-pc-windows-msvc
 cp target/i686-pc-windows-msvc/release/hypertrie.dll "$ROOT_DIR/HyperTrieCore/target/release/windows-x86/libhypertrie.dll"
 
 # Build for Linux x64
 echo "Building for Linux x64..."
 echo "Current directory: $(pwd)"
-cargo build --release --target x86_64-unknown-linux-gnu
+RUSTFLAGS="-C target-feature=+aes,+sse2" cargo build --release --target x86_64-unknown-linux-gnu
 cp target/x86_64-unknown-linux-gnu/release/libhypertrie.so "$ROOT_DIR/HyperTrieCore/target/release/linux-x64/libhypertrie.so"
 
 # Build for macOS x64
 echo "Building for macOS x64..."
 echo "Current directory: $(pwd)"
-cargo build --release --target x86_64-apple-darwin
+RUSTFLAGS="-C target-feature=+aes,+sse2" cargo build --release --target x86_64-apple-darwin
 cp target/x86_64-apple-darwin/release/libhypertrie.dylib "$ROOT_DIR/HyperTrieCore/target/release/osx-x64/libhypertrie.dylib"
 
 # Build for macOS ARM64
 echo "Building for macOS ARM64..."
 echo "Current directory: $(pwd)"
+# For ARM64, we don't need AES/SSE2 flags
 cargo build --release --target aarch64-apple-darwin
 cp target/aarch64-apple-darwin/release/libhypertrie.dylib "$ROOT_DIR/HyperTrieCore/target/release/osx-arm64/libhypertrie.dylib"
 
-echo "Changing back to root directory: $ROOT_DIR"
 cd "$ROOT_DIR" || exit 1
 echo "Build complete!" 
