@@ -4,6 +4,13 @@ set -e
 ROOT_DIR=$(pwd)
 echo "Root directory: $ROOT_DIR"
 
+# Remove Git for Windows from PATH if present (fixes linker issue)
+case "$(uname -s)" in
+    MINGW*|MSYS*|CYGWIN*)
+        export PATH=$(echo "$PATH" | tr ':' '\n' | grep -vi '/git/usr/bin' | paste -sd ':' -)
+        ;;
+esac
+
 # Install required targets
 rustup target add x86_64-pc-windows-msvc
 rustup target add i686-pc-windows-msvc
@@ -24,11 +31,6 @@ if [ ! -f "$ROOT_DIR/hypertrie/Cargo.toml" ]; then
 fi
 
 cd "$ROOT_DIR/hypertrie" || exit 1
-
-# Remove Git for Windows from PATH
-if [ "$(uname)" == "MINGW64_NT-10.0" ]; then
-    export PATH=$(echo "$PATH" | tr ':' '\n' | grep -v '/Git/usr/bin' | tr '\n' ':')
-fi
 
 # Build for Windows x64
 echo "Building for Windows x64..."
