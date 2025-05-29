@@ -14,16 +14,25 @@ jobs:
           - os: ubuntu-latest
             targets: x86_64-unknown-linux-gnu
             platforms: linux-x64
+            shell: bash
           - os: windows-latest
             targets: x86_64-pc-windows-msvc,i686-pc-windows-msvc
             platforms: windows-x64,windows-x86
+            shell: pwsh
           - os: macos-latest
             targets: x86_64-apple-darwin,aarch64-apple-darwin
             platforms: osx-x64,osx-arm64
+            shell: bash
 
     runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: ${{ matrix.shell }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          # Ensure consistent line endings
+          fetch-depth: 0
       
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
@@ -41,10 +50,26 @@ jobs:
         with:
           dotnet-version: '8.0.x'
       
+      - name: Make Script Executable (Unix)
+        if: matrix.os != 'windows-latest'
+        run: chmod +x ./build-rust.sh
+      
+      - name: Make Script Executable (Windows)
+        if: matrix.os == 'windows-latest'
+        run: |
+          # Convert line endings to LF
+          git config --global core.autocrlf false
+          git add build-rust.sh
+          git update-index --chmod=+x build-rust.sh
+          git commit -m "Make build script executable" || true
+      
       - name: Build Rust Library
         run: |
-          chmod +x ./build-rust.sh
-          ./build-rust.sh --platforms ${{ matrix.platforms }}
+          if [ "${{ matrix.os }}" == "windows-latest" ]; then
+            bash ./build-rust.sh --platforms ${{ matrix.platforms }}
+          else
+            ./build-rust.sh --platforms ${{ matrix.platforms }}
+          fi
       
       - name: Upload Build Artifacts
         uses: actions/upload-artifact@v4
