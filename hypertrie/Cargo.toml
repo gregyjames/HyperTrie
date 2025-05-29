@@ -1,0 +1,11 @@
+[package]
+name = "hypertrie"
+version = "0.1.0"
+edition = "2024"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+bit-vec = "0.8.0"
+gxhash = "3.5.0"
