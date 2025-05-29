@@ -9,14 +9,17 @@ jobs:
   build:
     strategy:
       matrix:
-        os: [ubuntu-latest, windows-latest]
+        os: [ubuntu-latest, windows-latest, macos-latest]
         include:
           - os: ubuntu-latest
-            targets: x86_64-unknown-linux-gnu,x86_64-apple-darwin,aarch64-apple-darwin
-            platforms: linux-x64,osx-x64,osx-arm64
+            targets: x86_64-unknown-linux-gnu
+            platforms: linux-x64
           - os: windows-latest
             targets: x86_64-pc-windows-msvc,i686-pc-windows-msvc
             platforms: windows-x64,windows-x86
+          - os: macos-latest
+            targets: x86_64-apple-darwin,aarch64-apple-darwin
+            platforms: osx-x64,osx-arm64
 
     runs-on: ${{ matrix.os }}
     steps:
