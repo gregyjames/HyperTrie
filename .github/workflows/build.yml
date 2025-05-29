@@ -9,16 +9,12 @@ jobs:
   build:
     strategy:
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
+        os: [ubuntu-latest, macos-latest]
         include:
           - os: ubuntu-latest
             targets: x86_64-unknown-linux-gnu
             platforms: linux-x64
             shell: bash
-          - os: windows-latest
-            targets: x86_64-pc-windows-msvc,i686-pc-windows-msvc
-            platforms: windows-x64,windows-x86
-            shell: pwsh
           - os: macos-latest
             targets: x86_64-apple-darwin,aarch64-apple-darwin
             platforms: osx-x64,osx-arm64
@@ -39,47 +35,17 @@ jobs:
         with:
           targets: ${{ matrix.targets }}
       
-      - name: Install Windows MSVC
-        if: matrix.os == 'windows-latest'
-        uses: ilammy/msvc-dev-cmd@v1
-        with:
-          arch: x64
-      
       - name: Install .NET SDK
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '8.0.x'
       
-      - name: Make Script Executable (Unix)
-        if: matrix.os != 'windows-latest'
+      - name: Make Script Executable
         shell: bash
         run: chmod +x ./build-rust.sh
       
-      - name: Make Script Executable (Windows)
-        if: matrix.os == 'windows-latest'
-        shell: pwsh
-        run: |
-          # Convert line endings to LF
-          git config --global core.autocrlf false
-          git add build-rust.sh
-          git update-index --chmod=+x build-rust.sh
-          git commit -m "Make build script executable" || true
-      
-      - name: Build Rust Library (Unix)
-        if: matrix.os != 'windows-latest'
+      - name: Build Rust Library
         shell: bash
-        run: ./build-rust.sh --platforms ${{ matrix.platforms }}
-      
-      - name: Remove Git for Windows from PATH
-        if: matrix.os == 'windows-latest'
-        shell: pwsh
-        run: |
-          $env:Path = ($env:Path -split ';' | Where-Object { $_ -notlike '*\\Git\\usr\\bin*' }) -join ';'
-          [System.Environment]::SetEnvironmentVariable('Path', $env:Path, [System.EnvironmentVariableTarget]::Process)
-
-      - name: Build Rust Library (Windows)
-        if: matrix.os == 'windows-latest'
-        shell: pwsh
         run: ./build-rust.sh --platforms ${{ matrix.platforms }}
       
       - name: Upload Build Artifacts
