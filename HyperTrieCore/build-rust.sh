@@ -25,6 +25,11 @@ fi
 
 cd "$ROOT_DIR/hypertrie" || exit 1
 
+# Remove Git for Windows from PATH
+if [ "$(uname)" == "MINGW64_NT-10.0" ]; then
+    export PATH=$(echo "$PATH" | tr ':' '\n' | grep -v '/Git/usr/bin' | tr '\n' ':')
+fi
+
 # Build for Windows x64
 echo "Building for Windows x64..."
 RUSTFLAGS="-C target-feature=+aes,+sse2" cargo build --release --target x86_64-pc-windows-msvc
