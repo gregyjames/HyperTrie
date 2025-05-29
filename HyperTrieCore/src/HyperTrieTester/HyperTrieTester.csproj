@@ -10,8 +10,11 @@
     </PropertyGroup>
 
     <ItemGroup>
-      <PackageReference Include="BenchmarkDotNet" Version="0.15.0" />
-      <PackageReference Include="TrieNet" Version="1.0.3.26316" />
+      <ProjectReference Include="..\HyperTrieCore\HyperTrieCore.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <PackageReference Include="TrieNet.Core" Version="1.0.4" />
     </ItemGroup>
 
 </Project>
