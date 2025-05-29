@@ -1,8 +1,36 @@
-#!/bin/bash
+#!/usr/bin/env bash
 set -e
 
 ROOT_DIR=$(pwd)
 echo "Root directory: $ROOT_DIR"
+
+# Parse --platforms argument
+PLATFORMS="windows-x64,windows-x86,linux-x64,osx-x64,osx-arm64"
+while [[ $# -gt 0 ]]; do
+  case $1 in
+    --platforms)
+      PLATFORMS="$2"
+      shift 2
+      ;;
+    *)
+      shift
+      ;;
+  esac
+done
+
+IFS=',' read -ra PLATFORM_ARRAY <<< "$PLATFORMS"
+echo "Requested platforms: ${PLATFORM_ARRAY[@]}"
+
+# Cross-platform copy function
+do_copy() {
+  src="$1"
+  dst="$2"
+  if command -v cp >/dev/null 2>&1; then
+    cp "$src" "$dst"
+  else
+    python -c "import shutil; shutil.copyfile('$src', '$dst')"
+  fi
+}
 
 # Install required targets
 rustup target add x86_64-pc-windows-msvc
@@ -25,30 +53,40 @@ fi
 
 cd "$ROOT_DIR/hypertrie" || exit 1
 
-# Build for Windows x64
-echo "Building for Windows x64..."
-RUSTFLAGS="-C target-feature=+aes,+sse2" cargo build --release --target x86_64-pc-windows-msvc
-cp target/x86_64-pc-windows-msvc/release/hypertrie.dll "$ROOT_DIR/HyperTrieCore/target/release/windows-x64/libhypertrie.dll"
-
-# Build for Windows x86
-echo "Building for Windows x86..."
-RUSTFLAGS="-C target-feature=+aes,+sse2" cargo build --release --target i686-pc-windows-msvc
-cp target/i686-pc-windows-msvc/release/hypertrie.dll "$ROOT_DIR/HyperTrieCore/target/release/windows-x86/libhypertrie.dll"
-
-# Build for Linux x64
-echo "Building for Linux x64..."
-RUSTFLAGS="-C target-feature=+aes,+sse2" cargo build --release --target x86_64-unknown-linux-gnu
-cp target/x86_64-unknown-linux-gnu/release/libhypertrie.so "$ROOT_DIR/HyperTrieCore/target/release/linux-x64/libhypertrie.so"
-
-# Build for macOS x64
-echo "Building for macOS x64..."
-cargo build --release --target x86_64-apple-darwin
-cp target/x86_64-apple-darwin/release/libhypertrie.dylib "$ROOT_DIR/HyperTrieCore/target/release/osx-x64/libhypertrie.dylib"
-
-# Build for macOS ARM64
-echo "Building for macOS ARM64..."
-cargo build --release --target aarch64-apple-darwin
-cp target/aarch64-apple-darwin/release/libhypertrie.dylib "$ROOT_DIR/HyperTrieCore/target/release/osx-arm64/libhypertrie.dylib"
+for platform in "${PLATFORM_ARRAY[@]}"; do
+  case $platform in
+    windows-x64)
+      echo "Building for Windows x64..."
+      RUSTFLAGS="-C target-feature=+aes,+sse2" cargo build --release --target x86_64-pc-windows-msvc
+      do_copy target/x86_64-pc-windows-msvc/release/hypertrie.dll "$ROOT_DIR/HyperTrieCore/target/release/windows-x64/libhypertrie.dll"
+      ;;
+    windows-x86)
+      echo "Building for Windows x86..."
+      RUSTFLAGS="-C target-feature=+aes,+sse2" cargo build --release --target i686-pc-windows-msvc
+      do_copy target/i686-pc-windows-msvc/release/hypertrie.dll "$ROOT_DIR/HyperTrieCore/target/release/windows-x86/libhypertrie.dll"
+      ;;
+    linux-x64)
+      echo "Building for Linux x64..."
+      RUSTFLAGS="-C target-feature=+aes,+sse2" cargo build --release --target x86_64-unknown-linux-gnu
+      do_copy target/x86_64-unknown-linux-gnu/release/libhypertrie.so "$ROOT_DIR/HyperTrieCore/target/release/linux-x64/libhypertrie.so"
+      ;;
+    osx-x64)
+      echo "Building for macOS x64..."
+      cargo build --release --target x86_64-apple-darwin
+      do_copy target/x86_64-apple-darwin/release/libhypertrie.dylib "$ROOT_DIR/HyperTrieCore/target/release/osx-x64/libhypertrie.dylib"
+      ;;
+    osx-arm64)
+      echo "Building for macOS ARM64..."
+      cargo build --release --target aarch64-apple-darwin
+      do_copy target/aarch64-apple-darwin/release/libhypertrie.dylib "$ROOT_DIR/HyperTrieCore/target/release/osx-arm64/libhypertrie.dylib"
+      ;;
+    *)
+      echo "Unknown platform: $platform"
+      ;;
+  esac
+done
 
 cd "$ROOT_DIR" || exit 1
-echo "Build complete!" 
+echo "Build complete!"
+echo "Listing build output:"
+ls -R "$ROOT_DIR/HyperTrieCore/target/release" || true 
