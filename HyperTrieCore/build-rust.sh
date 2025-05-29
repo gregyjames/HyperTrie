@@ -4,13 +4,6 @@ set -e
 ROOT_DIR=$(pwd)
 echo "Root directory: $ROOT_DIR"
 
-# Remove Git for Windows from PATH if present (fixes linker issue)
-case "$(uname -s)" in
-    MINGW*|MSYS*|CYGWIN*)
-        export PATH=$(echo "$PATH" | tr ':' '\n' | grep -vi '/git/usr/bin' | paste -sd ':' -)
-        ;;
-esac
-
 # Install required targets
 rustup target add x86_64-pc-windows-msvc
 rustup target add i686-pc-windows-msvc
