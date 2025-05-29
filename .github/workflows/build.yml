@@ -73,6 +73,11 @@ jobs:
         with:
           dotnet-version: '8.0.x'
       
+      - name: Build .NET Project
+        run: |
+          cd HyperTrieCore/src/HyperTrieCore
+          dotnet build -c Release
+
       - name: Build and Pack NuGet Package
         run: |
           cd HyperTrieCore/src/HyperTrieCore
