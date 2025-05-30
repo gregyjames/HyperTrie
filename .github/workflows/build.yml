@@ -108,7 +108,11 @@ jobs:
         id: create_release
         uses: softprops/action-gh-release@v1
         with:
-          files: HyperTrieCore/src/HyperTrieCore/bin/Release/*.nupkg
+          files: |
+            HyperTrieCore/src/HyperTrieCore/bin/Release/*.nupkg
+            HyperTrieCore/target/release/*.so
+            HyperTrieCore/target/release/*.dylib
+            HyperTrieCore/target/release/*.dll
           generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} 
