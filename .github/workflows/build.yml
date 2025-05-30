@@ -7,6 +7,7 @@ on:
 
 permissions:
      contents: write
+     packages: write
      
 jobs:
   build:
@@ -85,7 +86,24 @@ jobs:
         run: |
           cd HyperTrieCore/src/HyperTrieCore
           dotnet pack -c Release
-      
+
+      - name: Add GitHub NuGet source
+        run: |
+          dotnet nuget add source \
+            --username ${{ github.actor }} \
+            --password ${{ secrets.GITHUB_TOKEN }} \
+            --store-password-in-clear-text \
+            --name github \
+            "https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json"
+
+      - name: Publish NuGet package to GitHub Packages
+        run: |
+          dotnet nuget push HyperTrieCore/src/HyperTrieCore/bin/Release/*.nupkg \
+            --source "github" \
+            --api-key ${{ secrets.GITHUB_TOKEN }}
+        env:
+          NUGET_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Create Release
         id: create_release
         uses: softprops/action-gh-release@v1
