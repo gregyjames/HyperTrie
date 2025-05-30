@@ -77,15 +77,21 @@ jobs:
         with:
           dotnet-version: '8.0.x'
       
+      - name: Extract Version from Tag
+        id: get_version
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/v}
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+      
       - name: Build .NET Project
         run: |
           cd HyperTrieCore/src/HyperTrieCore
-          dotnet build -c Release
+          dotnet build -c Release /p:Version=${{ steps.get_version.outputs.version }}
 
       - name: Build and Pack NuGet Package
         run: |
           cd HyperTrieCore/src/HyperTrieCore
-          dotnet pack -c Release
+          dotnet pack -c Release /p:Version=${{ steps.get_version.outputs.version }}
 
       - name: Add GitHub NuGet source
         run: |
@@ -100,7 +106,8 @@ jobs:
         run: |
           dotnet nuget push HyperTrieCore/src/HyperTrieCore/bin/Release/*.nupkg \
             --source "github" \
-            --api-key ${{ secrets.GITHUB_TOKEN }}
+            --api-key ${{ secrets.GITHUB_TOKEN }} \
+            --skip-duplicate
         env:
           NUGET_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
