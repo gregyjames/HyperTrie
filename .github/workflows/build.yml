@@ -117,17 +117,23 @@ jobs:
           echo "Directory structure:"
           tree HyperTrieCore/target/release || ls -la HyperTrieCore/target/release/
       
+      - name: Extract Version from Tag
+        id: get_version
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/v}
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
       - name: Build C# Project
         shell: bash
         run: |
           cd HyperTrieCore
-          dotnet build -c Release
+          dotnet build -c Release /p:Version=${{ steps.get_version.outputs.version }}
       
       - name: Build and Pack NuGet Package
         shell: bash
         run: |
           cd HyperTrieCore/src/HyperTrieCore
-          dotnet pack -c Release
+          dotnet pack -c Release /p:Version=${{ steps.get_version.outputs.version }}
       
       - name: Debug - Check NuGet Package Contents
         shell: bash
