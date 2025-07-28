@@ -7,7 +7,11 @@ public class TrieNative(int size, int numHashes) : IDisposable
 {
     private readonly IntPtr _handle = trie_new(size, numHashes);
 
-    private static readonly string DllName = RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ? "hypertrie" : "libhypertrie";
+    #if WINDOWS
+        private const string DllName = "hypertrie";
+    #else
+        private const string DllName = "libhypertrie";
+    #endif
 
     [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
     private static extern IntPtr trie_new(int size, int numHashes);
