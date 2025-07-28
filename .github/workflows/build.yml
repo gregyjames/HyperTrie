@@ -9,7 +9,7 @@ jobs:
   build-rust:
     strategy:
       matrix:
-        platform: [linux-x64, windows-x64, windows-x86, macos-x64, macos-arm64]
+        platform: [linux-x64, windows-x64, windows-x86, macos-arm64]
         include:
           - platform: linux-x64
             os: ubuntu-latest
@@ -26,11 +26,6 @@ jobs:
             target: i686-pc-windows-msvc
             lib_name: libhypertrie.dll
             output_dir: windows-x86
-          - platform: macos-x64
-            os: macos-latest
-            target: x86_64-apple-darwin
-            lib_name: libhypertrie.dylib
-            output_dir: osx-x64
           - platform: macos-arm64
             os: macos-latest
             target: aarch64-apple-darwin
@@ -100,12 +95,6 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: native-lib-windows-x86
-          path: HyperTrieCore/target/release
-      
-      - name: Download macOS x64 Library
-        uses: actions/download-artifact@v4
-        with:
-          name: native-lib-macos-x64
           path: HyperTrieCore/target/release
       
       - name: Download macOS ARM64 Library
