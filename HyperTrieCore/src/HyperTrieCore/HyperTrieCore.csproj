@@ -45,6 +45,15 @@
         <None Include="..\..\target\release\osx-arm64\libhypertrie.dylib" Pack="true" PackagePath="runtimes\osx-arm64\native" />
     </ItemGroup>
 
+    <!-- Always include native libraries for all platforms in the package -->
+    <ItemGroup>
+        <None Include="..\..\target\release\windows-x64\libhypertrie.dll" Pack="true" PackagePath="runtimes\win-x64\native" Condition="Exists('..\..\target\release\windows-x64\libhypertrie.dll')" />
+        <None Include="..\..\target\release\windows-x86\libhypertrie.dll" Pack="true" PackagePath="runtimes\win-x86\native" Condition="Exists('..\..\target\release\windows-x86\libhypertrie.dll')" />
+        <None Include="..\..\target\release\linux-x64\libhypertrie.so" Pack="true" PackagePath="runtimes\linux-x64\native" Condition="Exists('..\..\target\release\linux-x64\libhypertrie.so')" />
+        <None Include="..\..\target\release\osx-x64\libhypertrie.dylib" Pack="true" PackagePath="runtimes\osx-x64\native" Condition="Exists('..\..\target\release\osx-x64\libhypertrie.dylib')" />
+        <None Include="..\..\target\release\osx-arm64\libhypertrie.dylib" Pack="true" PackagePath="runtimes\osx-arm64\native" Condition="Exists('..\..\target\release\osx-arm64\libhypertrie.dylib')" />
+    </ItemGroup>
+
     <!-- README for NuGet -->
     <ItemGroup>
         <None Include="..\..\..\README.md" Pack="true" PackagePath="/" />

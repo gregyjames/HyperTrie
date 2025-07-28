@@ -44,7 +44,7 @@ rust:
 
 # Build C# project
 .PHONY: csharp
-csharp: rust
+csharp: copy_rust_lib
 	@echo "Building C# project in $(BUILD_MODE) mode..."
 	dotnet build $(C_SHARP_PROJECT) $(DOTNET_BUILD_FLAG)
 
@@ -54,6 +54,13 @@ copy_rust_lib: rust
 	@echo "Copying Rust library to C# output directory: $(C_SHARP_OUTPUT_DIR)"
 	mkdir -p $(C_SHARP_OUTPUT_DIR)  # Ensure directory exists
 	cp $(RUST_LIB_PATH) HyperTrieCore/src/$(C_SHARP_OUTPUT_DIR)/
+	
+	# Also copy to the GitHub Actions build structure for local development
+	@echo "Copying Rust library to GitHub Actions build structure..."
+	mkdir -p HyperTrieCore/target/release/osx-x64
+	mkdir -p HyperTrieCore/target/release/osx-arm64
+	cp $(RUST_LIB_PATH) HyperTrieCore/target/release/osx-x64/
+	cp $(RUST_LIB_PATH) HyperTrieCore/target/release/osx-arm64/
 
 # Clean both projects
 .PHONY: clean
