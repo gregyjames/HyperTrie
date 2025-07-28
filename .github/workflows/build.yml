@@ -47,6 +47,7 @@ jobs:
           dotnet-version: '8.0.x'
       
       - name: Build Rust Library
+        shell: bash
         run: |
           cd hypertrie
           if [[ "${{ matrix.platform }}" == "windows-x64" || "${{ matrix.platform }}" == "windows-x86" ]]; then
@@ -58,6 +59,7 @@ jobs:
           fi
       
       - name: Copy Library
+        shell: bash
         run: |
           mkdir -p HyperTrieCore/target/release/${{ matrix.output_dir }}
           cp hypertrie/target/${{ matrix.target }}/release/${{ matrix.lib_name }} HyperTrieCore/target/release/${{ matrix.output_dir }}/
@@ -104,6 +106,7 @@ jobs:
           path: HyperTrieCore/target/release
       
       - name: Debug - List Libraries
+        shell: bash
         run: |
           echo "Checking downloaded libraries..."
           find HyperTrieCore/target/release -name "*.dll" -o -name "*.so" -o -name "*.dylib" | sort
@@ -116,6 +119,7 @@ jobs:
           dotnet pack -c Release
       
       - name: Debug - Check NuGet Package Contents
+        shell: bash
         run: |
           cd HyperTrieCore/src/HyperTrieCore/bin/Release
           unzip -l *.nupkg
