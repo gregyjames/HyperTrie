@@ -19,12 +19,12 @@ jobs:
           - platform: windows-x64
             os: windows-latest
             target: x86_64-pc-windows-msvc
-            lib_name: libhypertrie.dll
+            lib_name: hypertrie.dll
             output_dir: windows-x64
           - platform: windows-x86
             os: windows-latest
             target: i686-pc-windows-msvc
-            lib_name: libhypertrie.dll
+            lib_name: hypertrie.dll
             output_dir: windows-x86
           - platform: macos-arm64
             os: macos-latest
