@@ -113,7 +113,14 @@ jobs:
           echo "Directory structure:"
           tree HyperTrieCore/target/release || ls -la HyperTrieCore/target/release/
       
+      - name: Build C# Project
+        shell: bash
+        run: |
+          cd HyperTrieCore
+          dotnet build -c Release
+      
       - name: Build and Pack NuGet Package
+        shell: bash
         run: |
           cd HyperTrieCore/src/HyperTrieCore
           dotnet pack -c Release
