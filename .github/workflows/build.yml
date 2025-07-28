@@ -134,6 +134,15 @@ jobs:
           cd HyperTrieCore/src/HyperTrieCore/bin/Release
           unzip -l *.nupkg
       
+      - name: Publish NuGet package to GitHub Packages
+        run: |
+          dotnet nuget push HyperTrieCore/src/HyperTrieCore/bin/Release/*.nupkg \
+            --source "github" \
+            --api-key ${{ secrets.GITHUB_TOKEN }} \
+            --skip-duplicate
+        env:
+          NUGET_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          
       - name: Create Release
         id: create_release
         uses: softprops/action-gh-release@v1
