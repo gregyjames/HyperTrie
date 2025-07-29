@@ -75,8 +75,9 @@ jobs:
           path: HyperTrieCore/target/release/${{ matrix.output_dir }}
 
   build-nuget:
-    needs: build-rust
+    needs: [build-rust]
     runs-on: ubuntu-latest
+    if: always() && needs.build-rust.result == 'success'
     steps:
       - uses: actions/checkout@v4
       
@@ -89,25 +90,25 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: native-lib-linux-x64
-          path: HyperTrieCore/target/release
+          path: HyperTrieCore/target/release/linux-x64
       
       - name: Download Windows x64 Library
         uses: actions/download-artifact@v4
         with:
           name: native-lib-windows-x64
-          path: HyperTrieCore/target/release
+          path: HyperTrieCore/target/release/windows-x64
       
       - name: Download Windows x86 Library
         uses: actions/download-artifact@v4
         with:
           name: native-lib-windows-x86
-          path: HyperTrieCore/target/release
+          path: HyperTrieCore/target/release/windows-x86
       
       - name: Download macOS ARM64 Library
         uses: actions/download-artifact@v4
         with:
           name: native-lib-macos-arm64
-          path: HyperTrieCore/target/release
+          path: HyperTrieCore/target/release/osx-arm64
       
       - name: Debug - List Libraries
         shell: bash
