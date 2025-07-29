@@ -28,12 +28,12 @@ cd "$ROOT_DIR/hypertrie" || exit 1
 # Build for Windows x64
 echo "Building for Windows x64..."
 RUSTFLAGS="-C target-feature=+aes,+sse2" cargo build --release --target x86_64-pc-windows-msvc
-cp target/x86_64-pc-windows-msvc/release/hypertrie.dll "$ROOT_DIR/HyperTrieCore/target/release/windows-x64/libhypertrie.dll"
+cp target/x86_64-pc-windows-msvc/release/hypertrie.dll "$ROOT_DIR/HyperTrieCore/target/release/windows-x64/hypertrie.dll"
 
 # Build for Windows x86
 echo "Building for Windows x86..."
 RUSTFLAGS="-C target-feature=+aes,+sse2" cargo build --release --target i686-pc-windows-msvc
-cp target/i686-pc-windows-msvc/release/hypertrie.dll "$ROOT_DIR/HyperTrieCore/target/release/windows-x86/libhypertrie.dll"
+cp target/i686-pc-windows-msvc/release/hypertrie.dll "$ROOT_DIR/HyperTrieCore/target/release/windows-x86/hypertrie.dll"
 
 # Build for Linux x64
 echo "Building for Linux x64..."

@@ -19,33 +19,7 @@
         <RuntimeIdentifiers>win-x64;win-x86;linux-x64;osx-x64;osx-arm64</RuntimeIdentifiers>
     </PropertyGroup>
 
-    <!-- Native Library Configuration -->
-    <ItemGroup Condition="'$(RuntimeIdentifier)' == 'win-x64'">
-        <None Include="..\..\target\release\windows-x64\hypertrie.dll" Pack="true" PackagePath="runtimes\win-x64\native" />
-    </ItemGroup>
-    <ItemGroup Condition="'$(RuntimeIdentifier)' == 'win-x86'">
-        <None Include="..\..\target\release\windows-x86\hypertrie.dll" Pack="true" PackagePath="runtimes\win-x86\native" />
-    </ItemGroup>
-    <ItemGroup Condition="'$(RuntimeIdentifier)' == 'linux-x64'">
-        <None Include="..\..\target\release\linux-x64\libhypertrie.so" Pack="true" PackagePath="runtimes\linux-x64\native" />
-    </ItemGroup>
-    <ItemGroup Condition="'$(RuntimeIdentifier)' == 'osx-x64'">
-        <None Include="..\..\target\release\osx-x64\libhypertrie.dylib" Pack="true" PackagePath="runtimes\osx-x64\native" />
-    </ItemGroup>
-    <ItemGroup Condition="'$(RuntimeIdentifier)' == 'osx-arm64'">
-        <None Include="..\..\target\release\osx-arm64\libhypertrie.dylib" Pack="true" PackagePath="runtimes\osx-arm64\native" />
-    </ItemGroup>
-
-    <!-- For local development, include all native libraries -->
-    <ItemGroup Condition="'$(Configuration)' == 'Debug'">
-        <None Include="..\..\target\release\windows-x64\hypertrie.dll" Pack="true" PackagePath="runtimes\win-x64\native" />
-        <None Include="..\..\target\release\windows-x86\hypertrie.dll" Pack="true" PackagePath="runtimes\win-x86\native" />
-        <None Include="..\..\target\release\linux-x64\libhypertrie.so" Pack="true" PackagePath="runtimes\linux-x64\native" />
-        <None Include="..\..\target\release\osx-x64\libhypertrie.dylib" Pack="true" PackagePath="runtimes\osx-x64\native" />
-        <None Include="..\..\target\release\osx-arm64\libhypertrie.dylib" Pack="true" PackagePath="runtimes\osx-arm64\native" />
-    </ItemGroup>
-
-    <!-- Always include native libraries for all platforms in the package -->
+    <!-- Native libraries for all platforms (with Exists conditions) -->
     <ItemGroup>
         <!-- CI/CD: Libraries downloaded to HyperTrieCore/target/release/ -->
         <None Include="..\..\target\release\windows-x64\hypertrie.dll" Pack="true" PackagePath="runtimes\win-x64\native" Condition="Exists('..\..\target\release\windows-x64\hypertrie.dll')" />
@@ -63,5 +37,17 @@
     <ItemGroup>
         <None Include="..\..\..\README.md" Pack="true" PackagePath="/" />
     </ItemGroup>
+
+    <!-- Copy native libraries to output directory -->
+    <Target Name="CopyNativeLibraries" AfterTargets="Build">
+        <ItemGroup>
+            <NativeLibrary Include="$(MSBuildThisFileDirectory)runtimes\osx-arm64\native\libhypertrie.dylib" Condition="Exists('$(MSBuildThisFileDirectory)runtimes\osx-arm64\native\libhypertrie.dylib')" />
+            <NativeLibrary Include="$(MSBuildThisFileDirectory)runtimes\osx-x64\native\libhypertrie.dylib" Condition="Exists('$(MSBuildThisFileDirectory)runtimes\osx-x64\native\libhypertrie.dylib')" />
+            <NativeLibrary Include="$(MSBuildThisFileDirectory)runtimes\linux-x64\native\libhypertrie.so" Condition="Exists('$(MSBuildThisFileDirectory)runtimes\linux-x64\native\libhypertrie.so')" />
+            <NativeLibrary Include="$(MSBuildThisFileDirectory)runtimes\win-x64\native\hypertrie.dll" Condition="Exists('$(MSBuildThisFileDirectory)runtimes\win-x64\native\hypertrie.dll')" />
+            <NativeLibrary Include="$(MSBuildThisFileDirectory)runtimes\win-x86\native\hypertrie.dll" Condition="Exists('$(MSBuildThisFileDirectory)runtimes\win-x86\native\hypertrie.dll')" />
+        </ItemGroup>
+        <Copy SourceFiles="@(NativeLibrary)" DestinationFolder="$(OutputPath)" />
+    </Target>
 
 </Project>
