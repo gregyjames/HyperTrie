@@ -11,9 +11,10 @@
         <PackageId>HyperTrieCore</PackageId>
         <Version>1.0.0</Version>
         <Authors>Greg James</Authors>
-        <Description>A high-performance trie implementation with native Rust backend</Description>
+        <Description>A high-performance trie implementation with native Rust backend.</Description>
         <PackageReadmeFile>README.md</PackageReadmeFile>
         <PackageLicenseFile>LICENSE.md</PackageLicenseFile>
+        <PackageTags>c-sharp trie prefixtrie performance rust native</PackageTags>
         <!-- Runtime Identifiers -->
         <RuntimeIdentifiers>win-x64;win-x86;linux-x64;osx-x64;osx-arm64</RuntimeIdentifiers>
         <PackageIcon>trie.png</PackageIcon>
