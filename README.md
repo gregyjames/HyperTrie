@@ -22,11 +22,18 @@ trieNative.BulkInsert(allWords);
 Took 505ms to run Trie.Net
 Took 84ms to run Trie Native
 ```
+The benchmark is ran by inserting 172,819 words from the [Official Scrabble Player's Dictionary](https://github.com/dolph/dictionary) into the Tries and proceeding to check 500 random word occurances.
 
 ## Limitations
 
  1. No OSX64 support, the Rust code uses GXHash and the Github actions runner does not support the necessary CPU instruction sets :(
  2. To maximize performance it only supports 26 ASCII characters (A-Z), this is optimal for usecases such as a dictionary or spellcheck applications.
+
+## Local development
+The building in VS/Rider is still f***** up, so you will have to use the makefile:
+```bash
+make run
+```
 
 ## License
 MIT License
