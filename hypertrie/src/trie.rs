@@ -1,6 +1,7 @@
 use crate::bloom_filter::BloomFilter;
 
-const ALPHABET_SIZE: usize = 26;
+const ALPHABET: &[u8] = b"abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789.,;:!?\"'()-_[]{}@#$%^&*+/\\|<> ";
+const ALPHABET_SIZE: usize = ALPHABET.len();
 
 pub struct Node {
     letter: char,
@@ -12,27 +13,34 @@ impl Node {
     fn new(letter: char) -> Self {
         Node {
             letter,
-            children: Default::default(),
+            children: std::array::from_fn(|_| None),
             end_of_word: false,
         }
-    }
-
-    #[inline(always)]
-    fn char_to_index(c: char) -> usize {
-        (c as u8 - b'a') as usize
     }
 }
 
 pub struct Trie {
     root: Box<Node>,
     bloom_filter: BloomFilter,
+    char_to_index: [Option<usize>; 128]
 }
 
 impl Trie {
     pub fn new(size: usize, num_hashes: usize) -> Self {
-        Trie {
+        let mut temp = Trie {
             root: Box::new(Node::new('\0')),
-            bloom_filter: BloomFilter::new(size, num_hashes)
+            bloom_filter: BloomFilter::new(size, num_hashes),
+            char_to_index: [None; 128]
+        };
+
+        temp.init_char_to_index();
+
+        return temp;
+    }
+
+    fn init_char_to_index(&mut self){
+        for(i, &b) in ALPHABET.iter().enumerate(){
+            self.char_to_index[b as usize] = Some(i);
         }
     }
 
@@ -40,7 +48,8 @@ impl Trie {
         let mut current = &mut self.root;
 
         for c in word.to_ascii_lowercase().chars() {
-            let idx = Node::char_to_index(c);
+            let b = c as usize;
+            let idx = self.char_to_index[b].expect("Character not found in alphabet.");
             if current.children[idx].is_none() {
                 current.children[idx] = Some(Box::new(Node::new(c)));
             }
@@ -59,7 +68,9 @@ impl Trie {
         let mut current = &self.root;
 
         for c in word.to_ascii_lowercase().chars() {
-            let idx = Node::char_to_index(c);
+            //let idx = Node::char_to_index(c);
+            let b = c as usize;
+            let idx = self.char_to_index[b].expect("Character not found in alphabet.");
             match &current.children[idx] {
                 Some(node) => current = node,
                 None => return false,
@@ -89,7 +100,9 @@ impl Trie {
         let mut prefix_accum = String::new();
 
         for c in prefix.to_ascii_lowercase().chars() {
-            let idx = Node::char_to_index(c);
+            //let idx = Node::char_to_index(c);
+            let b = c as usize;
+            let idx = self.char_to_index[b].expect("Character not found in alphabet.");
             match &current.children[idx] {
                 Some(node) => {
                     prefix_accum.push(c);
