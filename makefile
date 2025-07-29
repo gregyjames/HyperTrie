@@ -59,9 +59,9 @@ copy_rust_lib: rust
 	@echo "Copying Rust library to GitHub Actions build structure..."
 	mkdir -p HyperTrieCore/target/release/osx-x64
 	mkdir -p HyperTrieCore/target/release/osx-arm64
-	cp $(RUST_LIB_PATH) HyperTrieCore/target/release/osx-x64/libhypertrie.dylib
-	cp $(RUST_LIB_PATH) HyperTrieCore/target/release/osx-arm64/libhypertrie.dylib
-
+	cp $(RUST_LIB_PATH) HyperTrieCore/target/release/osx-x64/
+	cp $(RUST_LIB_PATH) HyperTrieCore/target/release/osx-arm64/
+	cp $(RUST_LIB_PATH) $(C_SHARP_PROJECT)/src/HyperTrieTester/bin/Release/net8.0/
 # Clean both projects
 .PHONY: clean
 clean:
