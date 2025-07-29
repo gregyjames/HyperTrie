@@ -1,6 +1,4 @@
-
-<img src="https://raw.githubusercontent.com/gregyjames/HyperTrie/main/trie.png" width="64px"/>
-
+![Alt text](https://raw.githubusercontent.com/gregyjames/HyperTrie/main/mini_trie.png "package icon")
 # HyperTrie
 HyperTrie is a hyper optimized C# prefix tree written in Rust. It is currently the fastest C# Trie implementation, about 601% faster than TrieNet.Core 😮‍💨
 
