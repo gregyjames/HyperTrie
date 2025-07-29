@@ -1,0 +1,20 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <OutputType>Exe</OutputType>
+        <TargetFramework>net8.0</TargetFramework>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+        <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+        <RootNamespace>HyperTrieCore</RootNamespace>
+    </PropertyGroup>
+
+    <ItemGroup>
+      <ProjectReference Include="..\HyperTrieCore\HyperTrieCore.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <PackageReference Include="TrieNet.Core" Version="1.0.4" />
+    </ItemGroup>
+
+</Project>

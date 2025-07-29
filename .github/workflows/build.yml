@@ -1,0 +1,166 @@
+name: Build and Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+  packages: write
+
+jobs:
+  build-rust:
+    strategy:
+      matrix:
+        platform: [linux-x64, windows-x64, windows-x86, macos-arm64]
+        include:
+          - platform: linux-x64
+            os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            lib_name: libhypertrie.so
+            output_dir: linux-x64
+          - platform: windows-x64
+            os: windows-latest
+            target: x86_64-pc-windows-msvc
+            lib_name: hypertrie.dll
+            output_dir: windows-x64
+          - platform: windows-x86
+            os: windows-latest
+            target: i686-pc-windows-msvc
+            lib_name: hypertrie.dll
+            output_dir: windows-x86
+          - platform: macos-arm64
+            os: macos-latest
+            target: aarch64-apple-darwin
+            lib_name: libhypertrie.dylib
+            output_dir: osx-arm64
+
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          target: ${{ matrix.target }}
+      
+      - name: Install .NET SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      
+      - name: Build Rust Library
+        shell: bash
+        run: |
+          cd hypertrie
+          if [[ "${{ matrix.platform }}" == "windows-x64" || "${{ matrix.platform }}" == "windows-x86" ]]; then
+            RUSTFLAGS="-C target-feature=+aes,+sse2" cargo build --release --target ${{ matrix.target }}
+          elif [[ "${{ matrix.platform }}" == "linux-x64" ]]; then
+            RUSTFLAGS="-C target-feature=+aes,+sse2" cargo build --release --target ${{ matrix.target }}
+          else
+            cargo build --release --target ${{ matrix.target }}
+          fi
+      
+      - name: Copy Library
+        shell: bash
+        run: |
+          mkdir -p HyperTrieCore/target/release/${{ matrix.output_dir }}
+          cp hypertrie/target/${{ matrix.target }}/release/${{ matrix.lib_name }} HyperTrieCore/target/release/${{ matrix.output_dir }}/
+      
+      - name: Upload Library
+        uses: actions/upload-artifact@v4
+        with:
+          name: native-lib-${{ matrix.platform }}
+          path: HyperTrieCore/target/release/${{ matrix.output_dir }}
+
+  build-nuget:
+    needs: [build-rust]
+    runs-on: ubuntu-latest
+    if: always() && needs.build-rust.result == 'success'
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Install .NET SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      
+      - name: Download Linux Library
+        uses: actions/download-artifact@v4
+        with:
+          name: native-lib-linux-x64
+          path: HyperTrieCore/target/release/linux-x64
+      
+      - name: Download Windows x64 Library
+        uses: actions/download-artifact@v4
+        with:
+          name: native-lib-windows-x64
+          path: HyperTrieCore/target/release/windows-x64
+      
+      - name: Download Windows x86 Library
+        uses: actions/download-artifact@v4
+        with:
+          name: native-lib-windows-x86
+          path: HyperTrieCore/target/release/windows-x86
+      
+      - name: Download macOS ARM64 Library
+        uses: actions/download-artifact@v4
+        with:
+          name: native-lib-macos-arm64
+          path: HyperTrieCore/target/release/osx-arm64
+      
+      - name: Debug - List Libraries
+        shell: bash
+        run: |
+          echo "Checking downloaded libraries..."
+          find HyperTrieCore/target/release -name "*.dll" -o -name "*.so" -o -name "*.dylib" | sort
+          echo "Directory structure:"
+          tree HyperTrieCore/target/release || ls -la HyperTrieCore/target/release/
+      
+      - name: Extract Version from Tag
+        id: get_version
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/v}
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Build C# Project
+        shell: bash
+        run: |
+          cd HyperTrieCore
+          dotnet build -c Release /p:Version=${{ steps.get_version.outputs.version }}
+      
+      - name: Build and Pack NuGet Package
+        shell: bash
+        run: |
+          cd HyperTrieCore/src/HyperTrieCore
+          dotnet pack -c Release /p:Version=${{ steps.get_version.outputs.version }}
+      
+      - name: Debug - Check NuGet Package Contents
+        shell: bash
+        run: |
+          cd HyperTrieCore/src/HyperTrieCore/bin/Release
+          unzip -l *.nupkg
+      
+      - name: Publish NuGet package
+        run: dotnet nuget push HyperTrieCore/src/HyperTrieCore/bin/Release/*.nupkg --source https://api.nuget.org/v3/index.json --api-key "$NUGET_API_KEY" --skip-duplicate
+        env:
+          NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
+
+      - name: Publish NuGet package to GitHub Packages
+        run: |
+          dotnet nuget push HyperTrieCore/src/HyperTrieCore/bin/Release/*.nupkg \
+            --source "github" \
+            --api-key ${{ secrets.GITHUB_TOKEN }} \
+            --skip-duplicate
+        env:
+          NUGET_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Create Release
+        id: create_release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: HyperTrieCore/src/HyperTrieCore/bin/Release/*.nupkg
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} 
