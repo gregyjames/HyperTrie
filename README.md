@@ -24,6 +24,12 @@ trieNative.BulkInsert(allWords);
 Took 505ms to run Trie.Net
 Took 84ms to run Trie Native
 ```
+
+## Limitations
+
+ 1. No OSX64 support, the Rust code uses GXHash and the Github actions runner does not support the necessary CPU instruction sets :(
+ 2. To maximize performance it only supports 26 ASCII characters (A-Z), this is optimal for usecases such as a dictionary or spellcheck applications.
+
 ## License
 MIT License
 
