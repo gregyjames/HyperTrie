@@ -17,11 +17,23 @@
         
         <!-- Runtime Identifiers -->
         <RuntimeIdentifiers>win-x64;win-x86;linux-x64;osx-x64;osx-arm64</RuntimeIdentifiers>
+        <PackageIcon>trie.png</PackageIcon>
+        <Title>HyperTrieCore</Title>
+        <Copyright>Greg James @ 2025</Copyright>
+        <PackageProjectUrl>https://github.com/gregyjames/HyperTrie</PackageProjectUrl>
+        <RepositoryUrl>https://github.com/gregyjames/HyperTrie</RepositoryUrl>
+        <RepositoryType>git</RepositoryType>
+        <PackageRequireLicenseAcceptance>true</PackageRequireLicenseAcceptance>
     </PropertyGroup>
 
     <!-- Native libraries for all platforms (with Exists conditions) -->
     <ItemGroup>
         <!-- CI/CD: Libraries downloaded to HyperTrieCore/target/release/ -->
+        <None Include="..\..\..\trie.png">
+          <Pack>True</Pack>
+          <PackagePath></PackagePath>
+          <Link>trie.png</Link>
+        </None>
         <None Include="..\..\target\release\windows-x64\hypertrie.dll" Pack="true" PackagePath="runtimes\win-x64\native" Condition="Exists('..\..\target\release\windows-x64\hypertrie.dll')" />
         <None Include="..\..\target\release\windows-x86\hypertrie.dll" Pack="true" PackagePath="runtimes\win-x86\native" Condition="Exists('..\..\target\release\windows-x86\hypertrie.dll')" />
         <None Include="..\..\target\release\linux-x64\libhypertrie.so" Pack="true" PackagePath="runtimes\linux-x64\native" Condition="Exists('..\..\target\release\linux-x64\libhypertrie.so')" />
