@@ -2,6 +2,15 @@
 # HyperTrie
 HyperTrie is a hyper optimized C# prefix tree written in Rust. It is currently the fastest C# Trie implementation, about 601% faster than TrieNet.Core 😮‍💨
 
+## Why make this?
+Well, I wanted to try optimizing some of the hot paths in one of my libraries [Octane Downloader](https://github.com/gregyjames/OctaneDownloader) by rewritting them in Rust, but in order to do that, I needed a simpler project to experiment with multi-target builds and including native rust code in a Nuget package. Then I proceeded to optimize the hell out of it for no reason just to see how far I could go. I'm sure there potentially more optimizations to make, like using u8 instead of char for space complexity, so if you see anything feel free to open a PR.
+
+### Why not use a HashMap?
+Because of the additional overhead of hashing and collisions. It's faster to just use an array. Although, this leads to poor space complexity due to sparse arrays everywhere, which is why I decided to only support 26 characters.
+
+### Why a bloom filter?
+This is my favorite data structure, and it made perfect sense here since it will never give false negatives. It seemed like the obvious choice to side step hashing and checking if an entry exists in the Trie.
+
 ## Installation
 ```bash
 dotnet add package HyperTrieCore --version 1.0.27
@@ -27,7 +36,7 @@ The benchmark is ran by inserting 172,819 words from the [Official Scrabble Play
 ## Limitations
 
  1. No OSX64 support, the Rust code uses GXHash and the Github actions runner does not support the necessary CPU instruction sets :(
- 2. To maximize performance it only supports 26 ASCII characters (A-Z), this is optimal for usecases such as a dictionary or spellcheck applications.
+ 2. To maximize performance it only supports 26 ASCII characters (A-Z), this is optimal for usecases such as a dictionary or spellcheck applications but not really useful for something like checking available usernames.
 
 ## Local development
 The building in VS/Rider is still f***** up, so you will have to use the makefile:
