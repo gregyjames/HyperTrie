@@ -1,0 +1,12 @@
+<Project>
+  <PropertyGroup>
+    <!-- Enable central package management, https://learn.microsoft.com/en-us/nuget/consume-packages/Central-Package-Management -->
+    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageVersion Include="Nuke.Common" Version="8.0.0" />
+    <PackageVersion Include="Nuke.Components" Version="8.0.0" />
+    <PackageVersion Include="BenchmarkDotNet" Version="0.14.0" />
+    <PackageVersion Include="TrieNet.Core" Version="1.0.4" />
+  </ItemGroup>
+</Project>
