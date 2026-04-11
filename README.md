@@ -49,9 +49,11 @@ Toolchain=InProcessEmitToolchain
  2. To maximize performance it only supports 26 ASCII characters (A-Z), this is optimal for usecases such as a dictionary or spellcheck applications but not really useful for something like checking available usernames.
 
 ## Local development
-The building in VS/Rider is still f***** up, so you will have to use the makefile:
+Building is simplified via [Nuke](https://nuke.build/). Use the following commands:
 ```bash
-make run
+./build.sh --help      # Show all available targets
+./build.sh Compile     # Build the C# projects
+./build.sh BuildRustAll # Build Rust for all platforms (requires cross-compilers)
 ```
 
 ## License
