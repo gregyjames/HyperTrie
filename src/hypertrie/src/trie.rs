@@ -116,4 +116,43 @@ impl Trie {
             current_word.pop();
         }
     }
-} 
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_trie_insert_and_contains() {
+        let mut trie = Trie::new(100, 3);
+        trie.insert("hello");
+        trie.insert("world");
+        
+        assert!(trie.contains("hello"));
+        assert!(trie.contains("world"));
+        assert!(!trie.contains("hell"));
+        assert!(!trie.contains("word"));
+    }
+
+    #[test]
+    fn test_words_with_prefix() {
+        let mut trie = Trie::new(100, 3);
+        trie.insert("apple");
+        trie.insert("app");
+        trie.insert("application");
+        trie.insert("banana");
+
+        let apps = trie.words_with_prefix("app");
+        assert_eq!(apps.len(), 3);
+        assert!(apps.contains(&"apple".to_string()));
+        assert!(apps.contains(&"app".to_string()));
+        assert!(apps.contains(&"application".to_string()));
+
+        let banas = trie.words_with_prefix("ban");
+        assert_eq!(banas.len(), 1);
+        assert!(banas.contains(&"banana".to_string()));
+
+        let unknowns = trie.words_with_prefix("unknown");
+        assert!(unknowns.is_empty());
+    }
+}
