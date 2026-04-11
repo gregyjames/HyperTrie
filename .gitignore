@@ -12,3 +12,5 @@ HyperTrieCore/src/HyperTrieTester/.idea/
 *.log
 
 artifacts/
+
+src/hypertrie/target/

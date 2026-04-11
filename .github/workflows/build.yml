@@ -74,7 +74,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.runtime_id }}
-          path: artifacts/native/${{ matrix.runtime_id }}
+          path: src/HyperTrieCore/runtimes/${{ matrix.runtime_id }}
 
   build-nuget:
     needs: [build-rust]
@@ -93,14 +93,8 @@ jobs:
       - name: Download all native libraries
         uses: actions/download-artifact@v4
         with:
-          path: artifacts/native
+          path: src/HyperTrieCore/runtimes
           merge-multiple: false
-
-      - name: Display layout
-        run: |
-          cd artifacts/native
-          echo "Final layout:"
-          find . -type f | sort
 
       - name: Build, Pack, and Publish via Nuke
         shell: bash

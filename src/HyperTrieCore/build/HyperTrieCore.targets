@@ -2,14 +2,14 @@
     <Target Name="CopyNativeLibraries" AfterTargets="Build">
       <ItemGroup>
         <!-- For NuGet package structure -->
-        <NativeLibrary Include="$(MSBuildThisFileDirectory)..\runtimes\osx-arm64\native\libhypertrie.dylib"
-                       Condition="Exists('$(MSBuildThisFileDirectory)..\runtimes\osx-arm64\native\libhypertrie.dylib')" />
-        <NativeLibrary Include="$(MSBuildThisFileDirectory)..\runtimes\linux-x64\native\libhypertrie.so"
-                       Condition="Exists('$(MSBuildThisFileDirectory)..\runtimes\linux-x64\native\libhypertrie.so')" />
-        <NativeLibrary Include="$(MSBuildThisFileDirectory)..\runtimes\win-x64\native\hypertrie.dll"
-                       Condition="Exists('$(MSBuildThisFileDirectory)..\runtimes\win-x64\native\hypertrie.dll')" />
-        <NativeLibrary Include="$(MSBuildThisFileDirectory)..\runtimes\win-x86\native\hypertrie.dll"
-                       Condition="Exists('$(MSBuildThisFileDirectory)..\runtimes\win-x86\native\hypertrie.dll')" />
+        <NativeLibrary Include="$(MSBuildThisFileDirectory)../runtimes/osx-arm64/native/libhypertrie.dylib"
+                       Condition="Exists('$(MSBuildThisFileDirectory)../runtimes/osx-arm64/native/libhypertrie.dylib')" />
+        <NativeLibrary Include="$(MSBuildThisFileDirectory)../runtimes/linux-x64/native/libhypertrie.so"
+                       Condition="Exists('$(MSBuildThisFileDirectory)../runtimes/linux-x64/native/libhypertrie.so')" />
+        <NativeLibrary Include="$(MSBuildThisFileDirectory)../runtimes/win-x64/native/hypertrie.dll"
+                       Condition="Exists('$(MSBuildThisFileDirectory)../runtimes/win-x64/native/hypertrie.dll')" />
+        <NativeLibrary Include="$(MSBuildThisFileDirectory)../runtimes/win-x86/native/hypertrie.dll"
+                       Condition="Exists('$(MSBuildThisFileDirectory)../runtimes/win-x86/native/hypertrie.dll')" />
       </ItemGroup>
       <Copy SourceFiles="@(NativeLibrary)" DestinationFolder="$(OutputPath)" SkipUnchangedFiles="true" />
     </Target>
