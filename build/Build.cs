@@ -24,25 +24,25 @@ class Build : NukeBuild
     readonly Configuration Config = IsLocalBuild ? Configuration.Debug : Configuration.Release;
 
     [Solution(GenerateProjects = true)]
-    readonly Solution Solution;
+    readonly Solution Solution!;
 
     [GitVersion]
-    readonly GitVersion GitVersion;
+    readonly GitVersion GitVersion!;
 
     [Parameter("Version for NuGet package")]
-    readonly string Version;
+    readonly string? Version;
 
     [Parameter("NuGet API key")]
-    readonly string NuGetApiKey;
+    readonly string? NuGetApiKey;
 
     [Parameter("Rust target triple to build (single platform CI mode)")]
-    readonly string RustTarget;
+    readonly string? RustTarget;
 
     [Parameter("Runtime identifier for the current platform")]
-    readonly string RuntimeId;
+    readonly string? RuntimeId;
 
     [Parameter("Library filename produced by cargo")]
-    readonly string LibName;
+    readonly string? LibName;
 
     AbsolutePath HyperTrieCorePath => RootDirectory / "HyperTrieCore";
     AbsolutePath RustProjectPath => RootDirectory / "hypertrie";
