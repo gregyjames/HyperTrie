@@ -9,7 +9,6 @@ using Nuke.Common.IO;
 using Nuke.Common.ProjectModel;
 using Nuke.Common.Tooling;
 using Nuke.Common.Tools.DotNet;
-using Nuke.Common.Tools.GitVersion;
 using Nuke.Common.Utilities.Collections;
 using Serilog;
 using static Nuke.Common.EnvironmentInfo;
@@ -24,10 +23,7 @@ class Build : NukeBuild
     readonly Configuration Config = IsLocalBuild ? Configuration.Debug : Configuration.Release;
 
     [Solution(GenerateProjects = true)]
-    readonly Solution Solution!;
-
-    [GitVersion]
-    readonly GitVersion GitVersion!;
+    readonly Solution Solution = default!;
 
     [Parameter("Version for NuGet package")]
     readonly string? Version;
@@ -117,7 +113,7 @@ class Build : NukeBuild
         .DependsOn(Restore)
         .Executes(() =>
         {
-            var version = Version ?? GitVersion.NuGetVersionV2;
+            var version = Version ?? "1.0.0";
             Serilog.Log.Information("Building version {Version}...", version);
 
             DotNetBuild(s => s
@@ -131,7 +127,7 @@ class Build : NukeBuild
         .DependsOn(Compile)
         .Executes(() =>
         {
-            var version = Version ?? GitVersion.NuGetVersionV2;
+            var version = Version ?? "1.0.0";
             Serilog.Log.Information("Packing version {Version}...", version);
 
             DotNetPack(s => s

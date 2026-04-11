@@ -60,6 +60,15 @@ jobs:
         with:
           dotnet-version: '8.0.x'
 
+      - name: Install GitVersion
+        uses: gittools/actions/gitversion/setup@v3.0.0
+        with:
+          versionSpec: '6.0.0'
+
+      - name: Determine Version
+        uses: gittools/actions/gitversion/execute@v3.0.0
+        id: gitversion
+
       - name: Build Rust Library via Nuke
         shell: bash
         run: |
@@ -67,7 +76,8 @@ jobs:
           ./build.sh BuildRustSingle \
             --rust-target ${{ matrix.target }} \
             --runtime-id ${{ matrix.runtime_id }} \
-            --lib-name ${{ matrix.lib_name }}
+            --lib-name ${{ matrix.lib_name }} \
+            --version ${{ steps.gitversion.outputs.nuGetVersionV2 }}
 
       - name: Upload Library
         uses: actions/upload-artifact@v4
@@ -117,6 +127,15 @@ jobs:
           echo "Final layout:"
           find . -type f | sort
 
+      - name: Install GitVersion
+        uses: gittools/actions/gitversion/setup@v3.0.0
+        with:
+          versionSpec: '6.0.0'
+
+      - name: Determine Version
+        uses: gittools/actions/gitversion/execute@v3.0.0
+        id: gitversion
+
       - name: Build, Pack, and Publish via Nuke
         shell: bash
         env:
@@ -126,7 +145,8 @@ jobs:
           chmod +x ./build.sh
           ./build.sh PublishNuGet PublishGitHub \
             --configuration Release \
-            --nu-get-api-key "$NUGET_API_KEY"
+            --nu-get-api-key "$NUGET_API_KEY" \
+            --version ${{ steps.gitversion.outputs.nuGetVersionV2 }}
 
       - name: Create Release
         uses: softprops/action-gh-release@v1
