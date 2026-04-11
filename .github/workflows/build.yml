@@ -43,6 +43,8 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
@@ -75,6 +77,8 @@ jobs:
     if: always() && needs.build-rust.result == 'success'
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Install .NET SDK
         uses: actions/setup-dotnet@v4
@@ -109,12 +113,6 @@ jobs:
           echo "Final layout:"
           find . -type f | sort
 
-      - name: Extract Version from Tag
-        id: get_version
-        run: |
-          VERSION=${GITHUB_REF#refs/tags/v}
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
-
       - name: Build, Pack, and Publish via Nuke
         shell: bash
         env:
@@ -124,7 +122,6 @@ jobs:
           chmod +x ./build.sh
           ./build.sh PublishNuGet PublishGitHub \
             --configuration Release \
-            --version ${{ steps.get_version.outputs.version }} \
             --nu-get-api-key "$NUGET_API_KEY"
 
       - name: Create Release
