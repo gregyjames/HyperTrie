@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -175,7 +176,10 @@ class Build : NukeBuild
         var outputDir = NativeOutputPath / runtimeId;
         Directory.CreateDirectory(outputDir);
 
-        var env = new Dictionary<string, string>();
+        var env = Environment.GetEnvironmentVariables()
+            .Cast<DictionaryEntry>()
+            .ToDictionary(x => (string)x.Key, x => (string?)x.Value);
+
         if (!string.IsNullOrEmpty(rustFlags))
             env["RUSTFLAGS"] = rustFlags;
 
@@ -183,9 +187,7 @@ class Build : NukeBuild
             "cargo",
             $"build --release --target {target}",
             workingDirectory: RustProjectPath,
-            environmentVariables: env.Any()
-                ? env.ToDictionary(x => x.Key, x => x.Value)
-                : null);
+            environmentVariables: env);
 
         process.AssertZeroExitCode();
 
