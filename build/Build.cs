@@ -53,7 +53,6 @@ class Build : NukeBuild
         ("linux-x64",   "x86_64-unknown-linux-gnu",  "libhypertrie.so",     "-C target-feature=+aes,+sse2"),
         ("windows-x64", "x86_64-pc-windows-msvc",    "hypertrie.dll",       "-C target-feature=+aes,+sse2"),
         ("windows-x86", "i686-pc-windows-msvc",      "hypertrie.dll",       "-C target-feature=+aes,+sse2"),
-        ("osx-x64",     "x86_64-apple-darwin",        "libhypertrie.dylib",  ""),
         ("osx-arm64",   "aarch64-apple-darwin",       "libhypertrie.dylib",  ""),
     ];
 
