@@ -37,4 +37,6 @@
         <None Include="..\..\LICENSE.md" Pack="true" PackagePath="/" />
     </ItemGroup>
 
+    <Import Project="build/HyperTrieCore.targets" />
+
 </Project>
