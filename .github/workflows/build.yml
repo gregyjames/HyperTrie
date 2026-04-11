@@ -80,7 +80,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.runtime_id }}
-          path: HyperTrieCore/target/release/${{ matrix.runtime_id }}
+          path: artifacts/native/${{ matrix.runtime_id }}
 
   build-nuget:
     needs: [build-rust]
@@ -99,12 +99,12 @@ jobs:
       - name: Download all native libraries
         uses: actions/download-artifact@v4
         with:
-          path: HyperTrieCore/target/release
+          path: artifacts/native
           merge-multiple: false
 
       - name: Display layout
         run: |
-          cd HyperTrieCore/target/release
+          cd artifacts/native
           echo "Final layout:"
           find . -type f | sort
 
@@ -132,7 +132,7 @@ jobs:
       - name: Create Release
         uses: softprops/action-gh-release@v1
         with:
-          files: HyperTrieCore/src/HyperTrieCore/bin/Release/*.nupkg
+          files: artifacts/packages/*.nupkg
           generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
