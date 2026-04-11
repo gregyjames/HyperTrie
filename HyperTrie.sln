@@ -1,10 +1,10 @@
-﻿
+
 Microsoft Visual Studio Solution File, Format Version 12.00
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "HyperTrieCore", "src\HyperTrieCore\HyperTrieCore.csproj", "{9620B4DA-06BE-4255-A514-B3766559638F}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "HyperTrieTester", "src\HyperTrieTester\HyperTrieTester.csproj", "{03A4AEF2-7D15-4A73-BB03-B1EA348B4466}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "_build", "..\build\_build.csproj", "{9140EB8D-FB2D-4D16-869F-7D6944524263}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "_build", "build\_build.csproj", "{9140EB8D-FB2D-4D16-869F-7D6944524263}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

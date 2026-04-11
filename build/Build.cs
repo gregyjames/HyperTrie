@@ -42,12 +42,12 @@ class Build : NukeBuild
     [Parameter("Library filename produced by cargo")]
     readonly string? LibName;
 
-    AbsolutePath HyperTrieCorePath => RootDirectory / "HyperTrieCore";
-    AbsolutePath RustProjectPath => RootDirectory / "hypertrie";
+    AbsolutePath SourcePath => RootDirectory / "src";
+    AbsolutePath HyperTrieCorePath => SourcePath / "HyperTrieCore";
+    AbsolutePath RustProjectPath => SourcePath / "hypertrie";
     AbsolutePath ArtifactsDirectory => RootDirectory / "artifacts";
     AbsolutePath NativeOutputPath => ArtifactsDirectory / "native";
-    AbsolutePath SourcePath => HyperTrieCorePath / "src";
-    AbsolutePath LibraryProjectPath => SourcePath / "HyperTrieCore" / "HyperTrieCore.csproj";
+    AbsolutePath LibraryProjectPath => HyperTrieCorePath / "HyperTrieCore.csproj";
     AbsolutePath PackageOutputPath => ArtifactsDirectory / "packages";
 
     // Platform definitions for local cross-compilation
