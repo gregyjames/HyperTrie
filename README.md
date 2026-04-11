@@ -28,10 +28,20 @@ trieNative.BulkInsert(allWords);
 
 ## Benchmark
 ```
-Took 505ms to run Trie.Net
-Took 84ms to run Trie Native
+
+BenchmarkDotNet v0.14.0, macOS 26.1 (25B78) [Darwin 25.1.0]
+Apple M1, 1 CPU, 8 logical and 8 physical cores
+.NET SDK 8.0.100
+  [Host] : .NET 8.0.0 (8.0.23.53103), Arm64 RyuJIT AdvSIMD
+
+Toolchain=InProcessEmitToolchain  
+
 ```
-The benchmark is ran by inserting 172,819 words from the [Official Scrabble Player's Dictionary](https://github.com/dolph/dictionary) into the Tries and proceeding to check 500 random word occurances.
+| Method               | Mean      | Error    | StdDev   | Rank | Gen0       | Gen1      | Gen2      | Allocated |
+|--------------------- |----------:|---------:|---------:|-----:|-----------:|----------:|----------:|----------:|
+| &#39;TrieNet (C#)&#39;       | 226.32 ms | 3.409 ms | 3.022 ms |    2 | 19500.0000 | 8000.0000 | 3000.0000 | 104.56 MB |
+| &#39;HyperTrie (Native)&#39; |  38.52 ms | 0.744 ms | 0.764 ms |    1 |   538.4615 |  538.4615 |  153.8462 |   2.06 MB |
+
 
 ## Limitations
 
