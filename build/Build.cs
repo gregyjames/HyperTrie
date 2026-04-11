@@ -21,6 +21,24 @@ class Build : NukeBuild
 {
     public static int Main() => Execute<Build>(x => x.Compile);
 
+    Target RustTest => _ => _
+        .Executes(() =>
+        {
+            ProcessTasks.StartProcess("cargo", "test", RustProjectPath)
+                .AssertZeroExitCode();
+        });
+
+    Target Test => _ => _
+        .DependsOn(Compile)
+        .DependsOn(RustTest)
+        .Executes(() =>
+        {
+            DotNetTest(s => s
+                .SetProjectFile(Solution)
+                .SetConfiguration(Config)
+                .SetNoBuild(true));
+        });
+
     [Parameter("Configuration to build - Default is 'Debug' (local) or 'Release' (server)")]
     readonly Configuration Config = IsLocalBuild ? Configuration.Debug : Configuration.Release;
 
