@@ -79,7 +79,7 @@ jobs:
       - name: Upload Library
         uses: actions/upload-artifact@v4
         with:
-          name: native-lib-${{ matrix.platform }}
+          name: ${{ matrix.runtime_id }}
           path: HyperTrieCore/target/release/${{ matrix.runtime_id }}
 
   build-nuget:
@@ -99,27 +99,12 @@ jobs:
       - name: Download all native libraries
         uses: actions/download-artifact@v4
         with:
-          pattern: native-lib-*
           path: HyperTrieCore/target/release
           merge-multiple: false
 
-      - name: Reorganize artifacts
-        shell: bash
+      - name: Display layout
         run: |
           cd HyperTrieCore/target/release
-          for dir in native-lib-*; do
-            platform="${dir#native-lib-}"
-            case "$platform" in
-              linux-x64)    rid="linux-x64" ;;
-              windows-x64)  rid="windows-x64" ;;
-              windows-x86)  rid="windows-x86" ;;
-              macos-arm64)  rid="osx-arm64" ;;
-            esac
-            if [ -d "$dir" ] && [ "$dir" != "$rid" ]; then
-              mkdir -p "$rid"
-              cp -r "$dir"/* "$rid"/
-            fi
-          done
           echo "Final layout:"
           find . -type f | sort
 
