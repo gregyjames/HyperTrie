@@ -4,6 +4,7 @@
     <File Path="Directory.Packages.props" />
   </Folder>
   <Project Path="src/HyperTrieCore/HyperTrieCore.csproj" />
+  <Project Path="src/HyperTrieCore.Tests/HyperTrieCore.Tests.csproj" />
   <Project Path="src/HyperTrieTester/HyperTrieTester.csproj" />
   <Project Path="build/_build.csproj" />
 </Solution>

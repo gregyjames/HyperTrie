@@ -95,7 +95,9 @@
               "Pack",
               "PublishGitHub",
               "PublishNuGet",
-              "Restore"
+              "Restore",
+              "RustTest",
+              "Test"
             ]
           }
         },
@@ -116,7 +118,9 @@
               "Pack",
               "PublishGitHub",
               "PublishNuGet",
-              "Restore"
+              "Restore",
+              "RustTest",
+              "Test"
             ]
           }
         },
