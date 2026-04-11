@@ -42,10 +42,10 @@ jobs:
           fetch-depth: 0
 
       - name: Install dependencies (Linux)
-        if: runner.os == 'Linux'
+        if: contains(matrix.os, 'ubuntu')
         run: |
           sudo apt-get update
-          sudo apt-get install -y gcc g++ build-essential
+          sudo apt-get install -y build-essential gcc-multilib libssl-dev gcc g++
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
