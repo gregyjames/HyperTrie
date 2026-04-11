@@ -10,3 +10,5 @@ HyperTrieCore/src/HyperTrieTester/.idea/
 *.user
 
 *.log
+
+artifacts/

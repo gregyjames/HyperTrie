@@ -57,30 +57,24 @@ jobs:
         with:
           dotnet-version: '8.0.x'
 
-      - name: Install GitVersion
-        uses: gittools/actions/gitversion/setup@v3.0.0
-        with:
-          versionSpec: '6.0.0'
-
-      - name: Determine Version
-        uses: gittools/actions/gitversion/execute@v3.0.0
-        id: gitversion
-
       - name: Build Rust Library via Nuke
         shell: bash
         run: |
           chmod +x ./build.sh
+          # Extract version organically directly from the pushed tag (e.g., v1.0.32-beta.4 -> 1.0.32-beta.4)
+          VERSION="${GITHUB_REF_NAME#v}"
+          CLEAN_VERSION="${VERSION//_/-}"
           ./build.sh BuildRustSingle \
             --rust-target ${{ matrix.target }} \
             --runtime-id ${{ matrix.runtime_id }} \
             --lib-name ${{ matrix.lib_name }} \
-            --version ${{ steps.gitversion.outputs.nuGetVersionV2 }}
+            --version "$CLEAN_VERSION"
 
       - name: Upload Library
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.runtime_id }}
-          path: HyperTrieCore/target/release/${{ matrix.runtime_id }}
+          path: artifacts/native/${{ matrix.runtime_id }}
 
   build-nuget:
     needs: [build-rust]
@@ -99,23 +93,14 @@ jobs:
       - name: Download all native libraries
         uses: actions/download-artifact@v4
         with:
-          path: HyperTrieCore/target/release
+          path: artifacts/native
           merge-multiple: false
 
       - name: Display layout
         run: |
-          cd HyperTrieCore/target/release
+          cd artifacts/native
           echo "Final layout:"
           find . -type f | sort
-
-      - name: Install GitVersion
-        uses: gittools/actions/gitversion/setup@v3.0.0
-        with:
-          versionSpec: '6.0.0'
-
-      - name: Determine Version
-        uses: gittools/actions/gitversion/execute@v3.0.0
-        id: gitversion
 
       - name: Build, Pack, and Publish via Nuke
         shell: bash
@@ -124,15 +109,17 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           chmod +x ./build.sh
+          VERSION="${GITHUB_REF_NAME#v}"
+          CLEAN_VERSION="${VERSION//_/-}"
           ./build.sh PublishNuGet PublishGitHub \
             --configuration Release \
             --nu-get-api-key "$NUGET_API_KEY" \
-            --version ${{ steps.gitversion.outputs.nuGetVersionV2 }}
+            --version "$CLEAN_VERSION"
 
       - name: Create Release
         uses: softprops/action-gh-release@v1
         with:
-          files: HyperTrieCore/src/HyperTrieCore/bin/Release/*.nupkg
+          files: artifacts/packages/*.nupkg
           generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

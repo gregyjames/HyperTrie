@@ -44,10 +44,11 @@ class Build : NukeBuild
 
     AbsolutePath HyperTrieCorePath => RootDirectory / "HyperTrieCore";
     AbsolutePath RustProjectPath => RootDirectory / "hypertrie";
-    AbsolutePath NativeOutputPath => HyperTrieCorePath / "target" / "release";
+    AbsolutePath ArtifactsDirectory => RootDirectory / "artifacts";
+    AbsolutePath NativeOutputPath => ArtifactsDirectory / "native";
     AbsolutePath SourcePath => HyperTrieCorePath / "src";
     AbsolutePath LibraryProjectPath => SourcePath / "HyperTrieCore" / "HyperTrieCore.csproj";
-    AbsolutePath PackageOutputPath => SourcePath / "HyperTrieCore" / "bin" / "Release";
+    AbsolutePath PackageOutputPath => ArtifactsDirectory / "packages";
 
     // Platform definitions for local cross-compilation
     static readonly (string Rid, string Target, string LibName, string RustFlags)[] Platforms =
@@ -63,9 +64,7 @@ class Build : NukeBuild
         .Executes(() =>
         {
             DotNetClean(s => s.SetProject(Solution));
-
-            if (Directory.Exists(NativeOutputPath))
-                NativeOutputPath.DeleteDirectory();
+            ArtifactsDirectory.CreateOrCleanDirectory();
         });
 
     Target Restore => _ => _
@@ -158,7 +157,8 @@ class Build : NukeBuild
                 .SetProject(LibraryProjectPath)
                 .SetConfiguration(Configuration.Release)
                 .SetVersion(version)
-                .SetNoBuild(true));
+                .SetNoBuild(true)
+                .SetOutputDirectory(PackageOutputPath));
         });
 
     Target PublishNuGet => _ => _
