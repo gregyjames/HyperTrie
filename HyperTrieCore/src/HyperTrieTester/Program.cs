@@ -1,48 +1,71 @@
-﻿using System.Diagnostics;
-using System.Runtime.CompilerServices;
-using System.Runtime.InteropServices;
-using System.Text;
+using BenchmarkDotNet.Attributes;
+using BenchmarkDotNet.Configs;
+using BenchmarkDotNet.Jobs;
+using BenchmarkDotNet.Running;
+using BenchmarkDotNet.Toolchains.InProcess.Emit;
 using Gma.DataStructures.StringSearch;
+using HyperTrieCore;
 
-namespace HyperTrieCore;
-internal static class Program
+var config = DefaultConfig.Instance
+    .WithOptions(ConfigOptions.DisableOptimizationsValidator)
+    .AddJob(Job.Default.WithToolchain(InProcessEmitToolchain.Instance));
+
+BenchmarkRunner.Run<TrieBenchmarks>(config);
+
+[MemoryDiagnoser]
+[RankColumn]
+public class TrieBenchmarks
 {
-    public static void Main(string[] args)
+    private const string Url = "https://raw.githubusercontent.com/dolph/dictionary/master/enable1.txt";
+    private const int NumTries = 500;
+
+    private List<string> _allWords = null!;
+    private int[] _randomIndices = null!;
+
+    [GlobalSetup]
+    public void GlobalSetup()
     {
-        const string url = "https://raw.githubusercontent.com/dolph/dictionary/master/enable1.txt";
-        const int numTries = 500;
-        
-        var client = new HttpClient();
-        var content = client.GetStringAsync(url).Result;
-        var allWords = content.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries).Select(x => x.ToLower().Trim()).ToList();
-        var trieNative = new TrieNative(allWords.Count(), 3);
-        var trieCSharp = new Trie<string>();
-        
-        Random random = new Random();
-        var sw = Stopwatch.StartNew();
-        foreach (var word in allWords)
+        using var client = new HttpClient();
+        var content = client.GetStringAsync(Url).Result;
+        _allWords = content
+            .Split(new char[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries)
+            .Select(x => x.ToLower().Trim())
+            .ToList();
+
+        var random = new Random(42);
+        _randomIndices = Enumerable.Range(0, NumTries)
+            .Select(_ => random.Next(0, _allWords.Count))
+            .ToArray();
+    }
+
+    [Benchmark(Description = "TrieNet (C#)")]
+    public void TrieNetCSharp()
+    {
+        var trie = new Trie<string>();
+
+        foreach (var word in _allWords)
         {
-            trieCSharp.Add(word, word);
+            trie.Add(word, word);
         }
-        
-        for (int i = 0; i < numTries; i++)
+
+        for (int i = 0; i < NumTries; i++)
         {
-            var indx = random.Next(0, allWords.Count());
-            trieCSharp.Retrieve(indx % 2 == 0 ? allWords[indx] : string.Join("", allWords[indx].Reverse()));
+            var indx = _randomIndices[i];
+            trie.Retrieve(indx % 2 == 0 ? _allWords[indx] : string.Join("", _allWords[indx].Reverse()));
         }
-        sw.Stop();
-        
-        Console.WriteLine($"Took {sw.ElapsedMilliseconds}ms to run Trie.Net");
-        
-        sw.Restart();
-        trieNative.BulkInsert(allWords);
-        for (int i = 0; i < numTries; i++)
+    }
+
+    [Benchmark(Description = "HyperTrie (Native)")]
+    public void TrieNativeBenchmark()
+    {
+        using var trie = new TrieNative(_allWords.Count, 3);
+
+        trie.BulkInsert(_allWords);
+
+        for (int i = 0; i < NumTries; i++)
         {
-            var indx = random.Next(0, allWords.Count());
-            trieNative.Contains(indx % 2 == 0 ? allWords[indx] : string.Join("", allWords[indx].Reverse()));
+            var indx = _randomIndices[i];
+            trie.Contains(indx % 2 == 0 ? _allWords[indx] : string.Join("", _allWords[indx].Reverse()));
         }
-        sw.Stop();
-        
-        Console.WriteLine($"Took {sw.ElapsedMilliseconds}ms to run Trie Native");
     }
 }
