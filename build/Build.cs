@@ -46,7 +46,7 @@ class Build : NukeBuild
     AbsolutePath HyperTrieCorePath => SourcePath / "HyperTrieCore";
     AbsolutePath RustProjectPath => SourcePath / "hypertrie";
     AbsolutePath ArtifactsDirectory => RootDirectory / "artifacts";
-    AbsolutePath NativeOutputPath => ArtifactsDirectory / "native";
+    AbsolutePath NativeOutputPath => HyperTrieCorePath / "runtimes";
     AbsolutePath LibraryProjectPath => HyperTrieCorePath / "HyperTrieCore.csproj";
     AbsolutePath PackageOutputPath => ArtifactsDirectory / "packages";
 
@@ -155,7 +155,7 @@ class Build : NukeBuild
 
             DotNetPack(s => s
                 .SetProject(LibraryProjectPath)
-                .SetConfiguration(Configuration.Release)
+                .SetConfiguration(Config)
                 .SetVersion(version)
                 .SetNoBuild(true)
                 .SetOutputDirectory(PackageOutputPath));

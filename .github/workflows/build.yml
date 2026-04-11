@@ -96,11 +96,12 @@ jobs:
           path: artifacts/native
           merge-multiple: false
 
-      - name: Display layout
+      - name: Stage native libraries for packing
         run: |
-          cd artifacts/native
-          echo "Final layout:"
-          find . -type f | sort
+          mkdir -p src/HyperTrieCore/runtimes
+          cp -r artifacts/native/* src/HyperTrieCore/runtimes/
+          echo "Internal runtimes layout:"
+          find src/HyperTrieCore/runtimes -type f | sort
 
       - name: Build, Pack, and Publish via Nuke
         shell: bash
