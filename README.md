@@ -50,12 +50,18 @@ Toolchain=InProcessEmitToolchain
 
 ## Local development
 Building is simplified via [Nuke](https://nuke.build/). Use the following commands:
+
 ```bash
-./build.sh --help      # Show all available targets
-./build.sh Compile     # Build the C# projects
-./build.sh BuildRustAll # Build Rust for all platforms (requires cross-compilers)
+./build.sh --help         # Show all available targets
+./build.sh Compile        # Build the C# projects (Default target)
+./build.sh BuildRustAll   # Build Rust native libraries for all platforms (requires `cargo cross`)
+./build.sh Pack           # Compiles all C# libraries and generates .nupkg NuGet files
+./build.sh PublishNuGet   # Pack and push packages to NuGet.org (Requires API key)
 ```
 
+**Build Outputs**
+This project relies on MSBuild `UseArtifactsOutput` and maps all builds into a centralized artifacts directory. 
+After compilation, check the `artifacts/` folder at the repository root. Native Rust binary artifacts will be cleanly routed to `artifacts/native/`, while bundled NuGet files are pushed to `artifacts/packages/`.
 ## License
 MIT License
 
