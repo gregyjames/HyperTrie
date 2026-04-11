@@ -74,7 +74,7 @@ jobs:
             --rust-target ${{ matrix.target }} \
             --runtime-id ${{ matrix.runtime_id }} \
             --lib-name ${{ matrix.lib_name }} \
-            --version ${{ steps.gitversion.outputs.nuGetVersionV2 }}
+            --version "${{ steps.gitversion.outputs.semVer }}"
 
       - name: Upload Library
         uses: actions/upload-artifact@v4
@@ -127,7 +127,7 @@ jobs:
           ./build.sh PublishNuGet PublishGitHub \
             --configuration Release \
             --nu-get-api-key "$NUGET_API_KEY" \
-            --version ${{ steps.gitversion.outputs.nuGetVersionV2 }}
+            --version "${{ steps.gitversion.outputs.semVer }}"
 
       - name: Create Release
         uses: softprops/action-gh-release@v1
