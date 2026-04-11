@@ -127,7 +127,7 @@ class Build : NukeBuild
                     var platform = Platforms.FirstOrDefault(p => p.Rid == currentRid);
                     if (platform != default)
                     {
-                        var libPath = NativeOutputPath / platform.Rid / platform.LibName;
+                        var libPath = NativeOutputPath / platform.Rid / "native" / platform.LibName;
                         if (!File.Exists(libPath))
                         {
                             Serilog.Log.Information($"Native library missing for {currentRid}. Triggering automatic build...");
@@ -197,7 +197,7 @@ class Build : NukeBuild
 
     void BuildRustForTarget(string target, string runtimeId, string libName, string rustFlags)
     {
-        var outputDir = NativeOutputPath / runtimeId;
+        var outputDir = NativeOutputPath / runtimeId / "native";
         Directory.CreateDirectory(outputDir);
 
         var env = Environment.GetEnvironmentVariables()
