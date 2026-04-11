@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Runtime.InteropServices;
 using Nuke.Common;
 using Nuke.Common.CI;
 using Nuke.Common.CI.GitHubActions;
@@ -63,7 +64,7 @@ class Build : NukeBuild
         {
             DotNetClean(s => s.SetProject(Solution));
 
-            if (NativeOutputPath.Exists())
+            if (Directory.Exists(NativeOutputPath))
                 NativeOutputPath.DeleteDirectory();
         });
 
@@ -114,6 +115,29 @@ class Build : NukeBuild
         .Executes(() =>
         {
             var version = Version ?? "1.0.0";
+
+            // Local development helper: Auto-build native lib if missing
+            if (IsLocalBuild)
+            {
+                var currentRid = RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ? (Environment.Is64BitProcess ? "win-x64" : "win-x86") :
+                                 RuntimeInformation.IsOSPlatform(OSPlatform.Linux) ? "linux-x64" :
+                                 RuntimeInformation.IsOSPlatform(OSPlatform.OSX) ? "osx-arm64" : null;
+
+                if (currentRid != null)
+                {
+                    var platform = Platforms.FirstOrDefault(p => p.Rid == currentRid);
+                    if (platform != default)
+                    {
+                        var libPath = NativeOutputPath / platform.Rid / platform.LibName;
+                        if (!File.Exists(libPath))
+                        {
+                            Serilog.Log.Information($"Native library missing for {currentRid}. Triggering automatic build...");
+                            BuildRustForTarget(platform.Target, platform.Rid, platform.LibName, platform.RustFlags);
+                        }
+                    }
+                }
+            }
+
             Serilog.Log.Information("Building version {Version}...", version);
 
             DotNetBuild(s => s
