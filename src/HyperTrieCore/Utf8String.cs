@@ -6,25 +6,32 @@ namespace HyperTrieCore;
 /// <summary>
 /// Helper to marshal C# string to UTF8 IntPtr with disposal.
 /// </summary>
-internal class Utf8String : IDisposable
+internal unsafe ref struct Utf8String : IDisposable
 {
     public IntPtr Pointer { get; private set; }
 
     public Utf8String(string str)
     {
-        if (str == null) throw new ArgumentNullException(nameof(str));
-
-        // Get byte array directly, with null terminator
-        byte[] utf8Bytes = Encoding.UTF8.GetBytes(str);
-        int lengthWithNullTerminator = utf8Bytes.Length + 1;  // +1 for the null terminator
-
-        // Allocate memory and copy bytes to unmanaged memory
-        Pointer = Marshal.AllocHGlobal(lengthWithNullTerminator);
-        Marshal.Copy(utf8Bytes, 0, Pointer, utf8Bytes.Length);
-        Marshal.WriteByte(Pointer + utf8Bytes.Length, 0); 
-    }
+        if (string.IsNullOrEmpty(str))
+        {
+            Pointer = IntPtr.Zero;
+            return;
+        };
         
-    private bool _disposed;
+        fixed (char* pStr = str)
+        {
+            int byteCount = Encoding.UTF8.GetByteCount(pStr, str.Length);
+            
+            Pointer = Marshal.AllocHGlobal(byteCount + 1);
+            
+            byte* pDest = (byte*)Pointer;
+            Encoding.UTF8.GetBytes(pStr, str.Length, pDest, byteCount);
+
+            pDest[byteCount] = 0;
+        }
+    }
+
+    private bool _disposed = false;
 
     public void Dispose()
     {
@@ -37,11 +44,5 @@ internal class Utf8String : IDisposable
         }
 
         _disposed = true;
-        GC.SuppressFinalize(this);
-    }
-        
-    ~Utf8String()
-    {
-        Dispose();
     }
 }
