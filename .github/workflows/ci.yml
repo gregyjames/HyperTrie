@@ -34,7 +34,7 @@ jobs:
         working-directory: src/hypertrie
 
       - name: Upload Rust coverage
-        uses: codecov/codecov-action@v5
+        uses: codecov/codecov-action@v6
         with:
           files: src/hypertrie/codecov.json
           token: ${{ secrets.CODECOV_TOKEN }}
@@ -72,7 +72,7 @@ jobs:
           ./build.sh Test --configuration Release
 
       - name: Upload coverage
-        uses: codecov/codecov-action@v5
+        uses: codecov/codecov-action@v6
         with:
           report_type: coverage
           files: 'artifacts/**/coverage.cobertura.xml'
