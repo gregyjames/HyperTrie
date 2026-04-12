@@ -18,6 +18,11 @@ jobs:
         with:
           components: clippy, rustfmt, llvm-tools-preview
 
+      - name: Rust Cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: "src/hypertrie -> target"
+          
       - name: Install cargo-llvm-cov
         uses: taiki-e/install-action@cargo-llvm-cov
           
@@ -56,6 +61,14 @@ jobs:
         with:
           dotnet-version: '8.0.x'
 
+      - name: Cache NuGet packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.csproj*', '**/packages.lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-nuget-
+
       - name: Install dependencies (Linux)
         run: |
           sudo apt-get update
@@ -63,6 +76,11 @@ jobs:
 
       - name: Install Rust (for native lib)
         uses: dtolnay/rust-toolchain@stable
+
+      - name: Rust Cache (FFI Lib)
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: "src/hypertrie -> target"
 
       - name: Build and Test via Nuke
         shell: bash
