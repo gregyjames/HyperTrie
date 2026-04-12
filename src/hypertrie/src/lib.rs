@@ -303,7 +303,12 @@ mod tests {
     #[test]
     fn test_words_with_prefix_basic() {
         let t = make_trie();
-        let words = [cstr("apple"), cstr("application"), cstr("apply"), cstr("banana")];
+        let words = [
+            cstr("apple"),
+            cstr("application"),
+            cstr("apply"),
+            cstr("banana"),
+        ];
         let ptrs: Vec<*const c_char> = words.iter().map(|s| s.as_ptr()).collect();
         unsafe {
             trie_bulk_insert(t, ptrs.as_ptr(), ptrs.len());
@@ -352,8 +357,7 @@ mod tests {
     fn test_words_with_prefix_null_trie_returns_null() {
         let prefix = cstr("app");
         let mut out_len: usize = 0;
-        let result =
-            unsafe { trie_words_with_prefix(ptr::null(), prefix.as_ptr(), &mut out_len) };
+        let result = unsafe { trie_words_with_prefix(ptr::null(), prefix.as_ptr(), &mut out_len) };
         assert!(result.is_null());
     }
 
