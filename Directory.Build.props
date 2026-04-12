@@ -1,6 +1,7 @@
 <Project>
   <PropertyGroup>
-    <UseArtifactsOutput>true</UseArtifactsOutput>
+      <UseArtifactsOutput>true</UseArtifactsOutput>
+      <NoWarn>CS8604,NU1507</NoWarn>
   </PropertyGroup>
   <PropertyGroup>
     <CoverletOutput Condition="'$(CoverletOutput)' == ''">$(MSBuildThisFileDirectory)artifacts/coverage/coverage.xml</CoverletOutput>

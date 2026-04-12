@@ -7,6 +7,7 @@
         <Nullable>enable</Nullable>
         <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
         <RootNamespace>HyperTrieCore</RootNamespace>
+        <NoWarn>CS8604,NU1507</NoWarn>
     </PropertyGroup>
 
     <ItemGroup>
