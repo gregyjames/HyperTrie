@@ -8,7 +8,7 @@
 
 ![Alt text](https://raw.githubusercontent.com/gregyjames/HyperTrie/main/mini_trie.png "package icon")
 # HyperTrie
-HyperTrie is a hyper optimized C# prefix tree written in Rust. It is currently the fastest C# Trie implementation, about 601% faster than TrieNet.Core 😮‍💨
+HyperTrie is a hyper optimized C# prefix tree written in Rust. It is currently the fastest C# Trie implementation, about 1,300% faster (92.71% less time) than TrieNet.Core 😮‍💨
 
 ## Why make this?
 Well, I wanted to try optimizing some of the hot paths in one of my libraries [Octane Downloader](https://github.com/gregyjames/OctaneDownloader) by rewritting them in Rust, but in order to do that, I needed a simpler project to experiment with multi-target builds and including native rust code in a Nuget package. Then I proceeded to optimize the hell out of it for no reason just to see how far I could go. I'm sure there potentially more optimizations to make, like using u8 instead of char for space complexity, so if you see anything feel free to open a PR.
@@ -37,18 +37,18 @@ trieNative.BulkInsert(allWords);
 ## Benchmark
 ```
 
-BenchmarkDotNet v0.14.0, macOS 26.1 (25B78) [Darwin 25.1.0]
+BenchmarkDotNet v0.15.8, macOS Tahoe 26.1 (25B78) [Darwin 25.1.0]
 Apple M1, 1 CPU, 8 logical and 8 physical cores
-.NET SDK 8.0.100
-  [Host] : .NET 8.0.0 (8.0.23.53103), Arm64 RyuJIT AdvSIMD
+.NET SDK 10.0.201
+  [Host] : .NET 8.0.0 (8.0.0, 8.0.23.53103), Arm64 RyuJIT armv8.0-a
 
 Toolchain=InProcessEmitToolchain  
 
 ```
-| Method               | Mean      | Error    | StdDev   | Rank | Gen0       | Gen1      | Gen2      | Allocated |
-|--------------------- |----------:|---------:|---------:|-----:|-----------:|----------:|----------:|----------:|
-| &#39;TrieNet (C#)&#39;       | 226.32 ms | 3.409 ms | 3.022 ms |    2 | 19500.0000 | 8000.0000 | 3000.0000 | 104.56 MB |
-| &#39;HyperTrie (Native)&#39; |  38.52 ms | 0.744 ms | 0.764 ms |    1 |   538.4615 |  538.4615 |  153.8462 |   2.06 MB |
+| Method               | Mean      | Error    | StdDev   | Median    | Rank | Gen0       | Gen1      | Gen2      | Allocated    |
+|--------------------- |----------:|---------:|---------:|----------:|-----:|-----------:|----------:|----------:|-------------:|
+| &#39;TrieNet (C#)&#39;       | 223.19 ms | 3.119 ms | 2.917 ms | 222.76 ms |    2 | 19500.0000 | 8000.0000 | 3000.0000 | 107064.97 KB |
+| &#39;HyperTrie (Native)&#39; |  16.27 ms | 0.325 ms | 0.872 ms |  15.93 ms |    1 |          - |         - |         - |     85.25 KB |
 
 
 ## Limitations

@@ -3,120 +3,171 @@ use crate::bloom_filter::BloomFilter;
 const ALPHABET_SIZE: usize = 26;
 
 pub struct Node {
-    letter: char,
-    children: [Option<Box<Node>>; ALPHABET_SIZE],
-    end_of_word: bool,
+    pub letter: u8,
+    pub children_mask: u32,
+    pub children_indices: [u32; 26],
+    pub end_of_word: bool,
 }
 
 impl Node {
-    fn new(letter: char) -> Self {
+    fn new(letter: u8) -> Self {
         Node {
             letter,
-            children: Default::default(),
+            children_mask: 0,
+            children_indices: [0; ALPHABET_SIZE],
             end_of_word: false,
         }
-    }
-
-    #[inline(always)]
-    fn char_to_index(c: char) -> usize {
-        (c as u8 - b'a') as usize
     }
 }
 
 pub struct Trie {
-    root: Box<Node>,
+    nodes: Vec<Node>,
     bloom_filter: BloomFilter,
 }
 
 impl Trie {
     pub fn new(size: usize, num_hashes: usize) -> Self {
+        let optimized_size = size
+            .checked_next_power_of_two()
+            .expect("Next power of 2 usize overflow");
+
+        let mut nodes = Vec::with_capacity(1024);
+        nodes.push(Node::new(0));
+
         Trie {
-            root: Box::new(Node::new('\0')),
-            bloom_filter: BloomFilter::new(size, num_hashes),
+            nodes,
+            bloom_filter: BloomFilter::new(optimized_size, num_hashes),
         }
     }
 
     pub fn insert(&mut self, word: &str) {
-        let mut current = &mut self.root;
+        let mut current_idx = 0;
+        let bytes = word.as_bytes();
 
-        for c in word.to_ascii_lowercase().chars() {
-            let idx = Node::char_to_index(c);
-            if current.children[idx].is_none() {
-                current.children[idx] = Some(Box::new(Node::new(c)));
+        for &b in bytes {
+            let char_val = b.to_ascii_lowercase();
+            let bit_idx = (char_val - b'a') as usize;
+
+            // Check if child exists using bitmask
+            if (self.nodes[current_idx].children_mask & (1 << bit_idx)) == 0 {
+                let new_node_idx = self.nodes.len() as u32;
+                self.nodes.push(Node::new(char_val));
+
+                // Update parent
+                let node = &mut self.nodes[current_idx];
+                node.children_mask |= 1 << bit_idx;
+                node.children_indices[bit_idx] = new_node_idx;
+
+                current_idx = new_node_idx as usize;
+            } else {
+                current_idx = self.nodes[current_idx].children_indices[bit_idx] as usize;
             }
-            current = current.children[idx].as_mut().unwrap();
         }
 
-        current.end_of_word = true;
+        self.nodes[current_idx].end_of_word = true;
         self.bloom_filter.insert(word);
     }
 
     pub fn contains(&self, word: &str) -> bool {
+        // Bloom Filter is usually faster than a full Trie walk for non-members
         if !self.bloom_filter.contains(word) {
             return false;
         }
 
-        let mut current = &self.root;
+        let mut current_idx = 0;
+        for &b in word.as_bytes() {
+            let char_val = b.to_ascii_lowercase();
+            let bit_idx = (char_val - b'a') as usize;
 
-        for c in word.to_ascii_lowercase().chars() {
-            let idx = Node::char_to_index(c);
-            match &current.children[idx] {
-                Some(node) => current = node,
-                None => return false,
+            let node = &self.nodes[current_idx];
+            if (node.children_mask & (1 << bit_idx)) == 0 {
+                return false;
             }
+            current_idx = node.children_indices[bit_idx] as usize;
         }
 
-        current.end_of_word
+        self.nodes[current_idx].end_of_word
     }
 
     pub fn print(&self) {
-        self.debug_print(&self.root, 0);
+        // Start at index 0 (the root)
+        self.debug_print(0, 0);
     }
 
-    fn debug_print(&self, node: &Node, indent: usize) {
+    fn debug_print(&self, node_idx: usize, indent: usize) {
+        let node = &self.nodes[node_idx];
         let padding = "  ".repeat(indent);
-        if node.letter != '\0' {
+
+        if node_idx == 0 {
+            println!("Root");
+        } else {
             println!(
                 "{}'{}' (end_of_word: {})",
-                padding, node.letter, node.end_of_word
+                padding, node.letter as char, node.end_of_word
             );
         }
-        for child in node.children.iter().flatten() {
-            self.debug_print(child, indent + 1);
+
+        // Since we are using a bitmask and an index array, we iterate
+        // through the alphabet and check the mask.
+        for i in 0..26 {
+            if (node.children_mask & (1 << i)) != 0 {
+                let child_idx = node.children_indices[i] as usize;
+                self.debug_print(child_idx, indent + 1);
+            }
         }
     }
 
     pub fn words_with_prefix(&self, prefix: &str) -> Vec<String> {
-        let mut current = &self.root;
-        let mut results = Vec::new();
-        let mut prefix_accum = String::new();
+        let mut current_idx = 0; // Start at root
+        let bytes = prefix.as_bytes();
 
-        for c in prefix.to_ascii_lowercase().chars() {
-            let idx = Node::char_to_index(c);
-            match &current.children[idx] {
-                Some(node) => {
-                    prefix_accum.push(c);
-                    current = node;
-                }
-                None => return results,
+        // 1. Navigate to the end of the prefix
+        for &b in bytes {
+            let char_val = b.to_ascii_lowercase();
+            let bit_idx = (char_val - b'a') as usize;
+
+            let node = &self.nodes[current_idx];
+            // Use the bitmask to check if the path exists
+            if (node.children_mask & (1 << bit_idx)) == 0 {
+                return Vec::new(); // Prefix not found
             }
+            current_idx = node.children_indices[bit_idx] as usize;
         }
 
-        Self::collect_words_from_node(current, &mut prefix_accum, &mut results);
+        // 2. Collect all words starting from this node
+        let mut results = Vec::new();
+        // Pre-allocate the buffer with the prefix to avoid mid-search reallocations
+        let mut buffer = prefix.to_ascii_lowercase().into_bytes();
+
+        self.collect_words_from_node(current_idx, &mut buffer, &mut results);
         results
     }
 
-    #[inline(always)]
-    fn collect_words_from_node(node: &Node, current_word: &mut String, results: &mut Vec<String>) {
+    fn collect_words_from_node(
+        &self,
+        node_idx: usize,
+        buffer: &mut Vec<u8>,
+        results: &mut Vec<String>,
+    ) {
+        let node = &self.nodes[node_idx];
+
+        // If this node marks the end of a word, save the current buffer
         if node.end_of_word {
-            results.push(current_word.clone());
+            // Optimization: Use String::from_utf8_unchecked if you're 100% sure of ASCII
+            results.push(String::from_utf8_lossy(buffer).into_owned());
         }
 
-        for child_opt in node.children.iter().flatten() {
-            let child = child_opt.as_ref();
-            current_word.push(child.letter);
-            Self::collect_words_from_node(child, current_word, results);
-            current_word.pop();
+        // Iterate through all possible children (a-z)
+        for i in 0..26 {
+            // Only recurse if the bitmask says a child exists
+            if (node.children_mask & (1 << i)) != 0 {
+                let child_idx = node.children_indices[i] as usize;
+
+                // Push the character for this branch
+                buffer.push(b'a' + i as u8);
+                self.collect_words_from_node(child_idx, buffer, results);
+                buffer.pop(); // Backtrack for the next branch
+            }
         }
     }
 }
