@@ -16,3 +16,7 @@ artifacts/
 src/hypertrie/target/
 
 .idea/
+
+src/HyperTrieCore.Tests/coverage.cobertura.xml
+
+src/HyperTrieCore.Tests/TestResults/

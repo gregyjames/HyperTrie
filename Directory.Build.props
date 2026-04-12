@@ -2,4 +2,14 @@
   <PropertyGroup>
     <UseArtifactsOutput>true</UseArtifactsOutput>
   </PropertyGroup>
+  <PropertyGroup>
+    <CoverletOutput Condition="'$(CoverletOutput)' == ''">$(MSBuildThisFileDirectory)artifacts/coverage/coverage.xml</CoverletOutput>
+    <Include>[HyperTrieCore*]*</Include>
+    <Exclude>[*.Tests]*</Exclude>
+    <ExcludeByFile>**/artifacts/**</ExcludeByFile>
+  </PropertyGroup>
+  <PropertyGroup>
+    <CollectCoverage>true</CollectCoverage>
+    <CoverletOutputFormat>cobertura</CoverletOutputFormat>
+  </PropertyGroup>
 </Project>
