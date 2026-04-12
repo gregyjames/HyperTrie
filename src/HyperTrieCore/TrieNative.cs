@@ -1,3 +1,4 @@
+using System.Buffers;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Text;
@@ -36,7 +37,7 @@ public class TrieNative(int size, int numHashes) : IDisposable
         out UIntPtr out_len);
     
     [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
-    private static extern void trie_bulk_insert(IntPtr trie, IntPtr[] words, UIntPtr len);
+    private static extern void trie_bulk_insert(IntPtr trie, IntPtr words, UIntPtr len);
     public void Insert(string word)
     {
         using var wordPtr = new Utf8String(word);
@@ -84,66 +85,51 @@ public class TrieNative(int size, int numHashes) : IDisposable
     {
         // Materialize words once
         int count = words.Count;
+        if (count == 0) return;
         
-        // Calculate total buffer size for all UTF8 strings + null terminators
-        var totalSize = 0;
-        var offsets = new List<int>(count);
+        int totalByteCapacity = 0;
+        foreach (var word in words) totalByteCapacity += (word.Length * 3) + 1; // Worst case UTF8
 
-        foreach (var word in words)
-        {
-            offsets.Add(totalSize);
-            var byteCount = Encoding.UTF8.GetByteCount(word);
-            totalSize += byteCount + 1; // +1 for null terminator
-        }
-
-        // Allocate one big unmanaged buffer
-        IntPtr bigBuffer = Marshal.AllocHGlobal(totalSize);
-
-        // Allocate managed pointer array
-        IntPtr[] ptrArray = new IntPtr[count];
-
+        IntPtr bigBuffer = Marshal.AllocHGlobal((IntPtr)totalByteCapacity);
+        IntPtr[] ptrArray = ArrayPool<IntPtr>.Shared.Rent(count);
+        
+        
         try
         {
-            byte* basePtr = (byte*)bigBuffer.ToPointer();
-
-            /*
-            for (int i = 0; i < count; i++)
-            {
-                var sourceSpan = wordList[i].AsSpan();
-                var offset = offsets[i];
-                var destSpan = new Span<byte>(basePtr + offset, totalSize - offset);
-
-                int bytesEncoded = Encoding.UTF8.GetBytes(sourceSpan, destSpan);
-                destSpan[bytesEncoded] = 0; // null terminator
-                ptrArray[i] = (IntPtr)(basePtr + offset);
-            }*/
-
+            byte* currentDest = (byte*)bigBuffer.ToPointer();
+            
             #if NET5_0_OR_GREATER
-                var collection = CollectionsMarshal.AsSpan(words);
-                ref var searchSpace = ref MemoryMarshal.GetReference(collection);
+                var span = CollectionsMarshal.AsSpan(words);
             #else
-                var collection = words.ToArray();
-                ref var searchSpace = ref MemoryMarshal.GetReference(collection.AsSpan());
+                var span = words.ToArray().AsSpan();
             #endif
-            
+
             for (int i = 0; i < count; i++)
             {
-                var item = Unsafe.Add(ref searchSpace, i).AsSpan();
-                var offset = offsets[i];
-                var destSpan = new Span<byte>(basePtr + offset, totalSize - offset);
+                string s = span[i];
+                if (s == null) continue;
+                
+                ptrArray[i] = (IntPtr)currentDest;
 
-                int bytesEncoded = Encoding.UTF8.GetBytes(item, destSpan);
-                destSpan[bytesEncoded] = 0; // null terminator
-                ptrArray[i] = (IntPtr)(basePtr + offset);
+                fixed (char* pStr = s)
+                {
+                    int bytesWritten = Encoding.UTF8.GetBytes(pStr, s.Length, currentDest, totalByteCapacity);
+                    
+                    currentDest += bytesWritten;
+                    *currentDest = 0; // Null terminator
+                    currentDest++;
+                }
             }
-            
-            // Call Rust bulk insert once
-            trie_bulk_insert(_handle, ptrArray, (UIntPtr)ptrArray.Length);
+
+            fixed (IntPtr* pPtrs = ptrArray)
+            {
+                trie_bulk_insert(_handle, (IntPtr)pPtrs, (UIntPtr)count);
+            }
         }
         finally
         {
-            // Free single big buffer
             Marshal.FreeHGlobal(bigBuffer);
+            ArrayPool<IntPtr>.Shared.Return(ptrArray);
         }
     }
     
