@@ -15,33 +15,26 @@ public sealed class TrieNative(int size, int numHashes = 5) : IDisposable
     private const string DLL_NAME = "hypertrie";
 
     [DllImport(DLL_NAME, CallingConvention = CallingConvention.Cdecl)]
-    [DefaultDllImportSearchPaths(DllImportSearchPath.SafeDirectories)]
     private static extern IntPtr trie_new(int size, int numHashes);
 
     [DllImport(DLL_NAME, CallingConvention = CallingConvention.Cdecl)]
-    [DefaultDllImportSearchPaths(DllImportSearchPath.SafeDirectories)]
     private static extern void trie_free(IntPtr trie);
 
     [DllImport(DLL_NAME, CallingConvention = CallingConvention.Cdecl)]
-    [DefaultDllImportSearchPaths(DllImportSearchPath.SafeDirectories)]
     private static extern void trie_insert(IntPtr trie, IntPtr word);
 
     [DllImport(DLL_NAME, CallingConvention = CallingConvention.Cdecl)]
-    [DefaultDllImportSearchPaths(DllImportSearchPath.SafeDirectories)]
     [return: MarshalAs(UnmanagedType.Bool)]
     private static extern bool trie_contains(IntPtr trie, IntPtr word);
-    [DefaultDllImportSearchPaths(DllImportSearchPath.SafeDirectories)]
 
     [DllImport(DLL_NAME, CallingConvention = CallingConvention.Cdecl)]
     private static extern void trie_debug_print(IntPtr trie);
 
     [DllImport(DLL_NAME, CallingConvention = CallingConvention.Cdecl)]
-    [DefaultDllImportSearchPaths(DllImportSearchPath.SafeDirectories)]
     private static extern void trie_free_words(IntPtr words, UIntPtr len);
 
 
     [DllImport(DLL_NAME, CallingConvention = CallingConvention.Cdecl)]
-    [DefaultDllImportSearchPaths(DllImportSearchPath.SafeDirectories)]
     private static extern IntPtr trie_words_with_prefix(
         IntPtr trie,
         IntPtr prefix,
@@ -49,7 +42,6 @@ public sealed class TrieNative(int size, int numHashes = 5) : IDisposable
         out UIntPtr out_len);
 
     [DllImport(DLL_NAME, CallingConvention = CallingConvention.Cdecl)]
-    [DefaultDllImportSearchPaths(DllImportSearchPath.SafeDirectories)]
     private static extern void trie_bulk_insert(IntPtr trie, IntPtr words, UIntPtr len);
     /// <summary>
     /// Inserts a new word into the TrieNative object.
