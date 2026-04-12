@@ -9,6 +9,7 @@ namespace HyperTrieCore;
 internal unsafe ref struct Utf8String : IDisposable
 {
     private const int STACK_THRESHOLD = 256;
+    // ReSharper disable once PrivateFieldCanBeConvertedToLocalVariable
     private fixed byte _fixedBuffer[STACK_THRESHOLD];
     private byte* _allocatedPtr;
     private bool _isHeapAllocated;
