@@ -118,8 +118,13 @@ public class TrieNative(int size, int numHashes) : IDisposable
                 ptrArray[i] = (IntPtr)(basePtr + offset);
             }*/
 
-            var collection = CollectionsMarshal.AsSpan(words);
-            ref var searchSpace = ref MemoryMarshal.GetReference(collection);
+            #if NET5_0_OR_GREATER
+                var collection = CollectionsMarshal.AsSpan(words);
+                ref var searchSpace = ref MemoryMarshal.GetReference(collection);
+            #else
+                var collection = words.ToArray();
+                ref var searchSpace = ref MemoryMarshal.GetReference(collection.AsSpan());
+            #endif
             
             for (int i = 0; i < count; i++)
             {
