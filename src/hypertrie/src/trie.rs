@@ -3,23 +3,25 @@ use crate::bloom_filter::BloomFilter;
 const ALPHABET_SIZE: usize = 26;
 
 pub struct Node {
-    letter: char,
+    letter: u8,
     children: [Option<Box<Node>>; ALPHABET_SIZE],
     end_of_word: bool,
 }
 
 impl Node {
-    fn new(letter: char) -> Self {
+    fn new(letter: u8) -> Self {
+        const NODE_NODE: Option<Box<Node>> = None;
+
         Node {
             letter,
-            children: Default::default(),
+            children: [NODE_NODE; ALPHABET_SIZE],
             end_of_word: false,
         }
     }
 
     #[inline(always)]
-    fn char_to_index(c: char) -> usize {
-        (c as u8 - b'a') as usize
+    fn char_to_index(c: u8) -> usize {
+        (c.to_ascii_lowercase() - b'a') as usize
     }
 }
 
@@ -31,15 +33,16 @@ pub struct Trie {
 impl Trie {
     pub fn new(size: usize, num_hashes: usize) -> Self {
         Trie {
-            root: Box::new(Node::new('\0')),
+            root: Box::new(Node::new(0)),
             bloom_filter: BloomFilter::new(size, num_hashes),
         }
     }
 
     pub fn insert(&mut self, word: &str) {
+        let bytes = word.as_bytes();
         let mut current = &mut self.root;
 
-        for c in word.chars().map(|c| c.to_ascii_lowercase()) {
+        for &c in bytes {
             let idx = Node::char_to_index(c);
             if current.children[idx].is_none() {
                 current.children[idx] = Some(Box::new(Node::new(c)));
@@ -58,8 +61,8 @@ impl Trie {
 
         let mut current = &self.root;
 
-        for c in word.to_ascii_lowercase().chars() {
-            let idx = Node::char_to_index(c);
+        for &b in word.as_bytes() {
+            let idx = Node::char_to_index(b);
             match &current.children[idx] {
                 Some(node) => current = node,
                 None => return false,
@@ -75,10 +78,12 @@ impl Trie {
 
     fn debug_print(&self, node: &Node, indent: usize) {
         let padding = "  ".repeat(indent);
-        if node.letter != '\0' {
+        if indent == 0 {
+            println!("Root");
+        } else {
             println!(
                 "{}'{}' (end_of_word: {})",
-                padding, node.letter, node.end_of_word
+                padding, node.letter as char, node.end_of_word
             );
         }
         for child in node.children.iter().flatten() {
@@ -88,35 +93,34 @@ impl Trie {
 
     pub fn words_with_prefix(&self, prefix: &str) -> Vec<String> {
         let mut current = &self.root;
-        let mut results = Vec::new();
-        let mut prefix_accum = String::new();
+        let bytes = prefix.as_bytes();
 
-        for c in prefix.to_ascii_lowercase().chars() {
-            let idx = Node::char_to_index(c);
+        for &b in bytes {
+            let idx = Node::char_to_index(b);
             match &current.children[idx] {
-                Some(node) => {
-                    prefix_accum.push(c);
-                    current = node;
-                }
-                None => return results,
+                Some(node) => current = node,
+                None => return Vec::new(),
             }
         }
 
-        Self::collect_words_from_node(current, &mut prefix_accum, &mut results);
+        let mut results = Vec::new();
+        let mut buffer = prefix.to_ascii_lowercase().into_bytes();
+        self.collect_words_from_node(current, &mut buffer, &mut results);
         results
     }
 
     #[inline(always)]
-    fn collect_words_from_node(node: &Node, current_word: &mut String, results: &mut Vec<String>) {
+    fn collect_words_from_node(&self, node: &Node, buffer: &mut Vec<u8>, results: &mut Vec<String>) {
         if node.end_of_word {
-            results.push(current_word.clone());
+            results.push(String::from_utf8_lossy(buffer).into_owned());
         }
 
-        for child_opt in node.children.iter().flatten() {
-            let child = child_opt.as_ref();
-            current_word.push(child.letter);
-            Self::collect_words_from_node(child, current_word, results);
-            current_word.pop();
+        for (i, child_opt) in node.children.iter().enumerate() {
+            if let Some(child) = child_opt {
+                buffer.push(b'a' + i as u8);
+                self.collect_words_from_node(child, buffer, results);
+                buffer.pop();
+            }
         }
     }
 }
