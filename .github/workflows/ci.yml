@@ -83,6 +83,7 @@ jobs:
           workspaces: "src/hypertrie -> target"
 
       - name: Build and Test via Nuke
+        id: test
         shell: bash
         run: |
           chmod +x ./build.sh
