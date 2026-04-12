@@ -1,3 +1,4 @@
+using System.Runtime.InteropServices;
 using System.Text;
 
 namespace HyperTrieCore;
@@ -7,37 +8,57 @@ namespace HyperTrieCore;
 /// </summary>
 internal unsafe ref struct Utf8String : IDisposable
 {
-    private fixed byte _fixedBuffer[256];
-    public byte* Pointer { get; private set; }
-    public int Length { get; private set; }
+    private const int STACK_THRESHOLD = 256;
+    private fixed byte _fixedBuffer[STACK_THRESHOLD];
+    private byte* _allocatedPtr;
+    private bool _isHeapAllocated;
+    public IntPtr Pointer {get; private set;}
 
     public Utf8String(string str)
     {
+        _allocatedPtr = null;
+        _isHeapAllocated = false;
+
         if (string.IsNullOrEmpty(str))
         {
-            Pointer = null;
-            Length = 0;
+            Pointer = IntPtr.Zero;
             return;
         }
 
-        int byteCount = Encoding.UTF8.GetByteCount(str);
-
-        if (byteCount >= 256)
+        fixed (char* pStr = str)
         {
-            throw new ArgumentException($"{nameof(Utf8String)} is too long.");
-        }
+            int byteCount = Encoding.UTF8.GetByteCount(str);
+            int requiredSize = byteCount + 1; // +1 for null terminator
 
-        fixed (byte* pBuffer = _fixedBuffer)
-        {
-            fixed (char* pStr = str)
+            if (requiredSize <= STACK_THRESHOLD)
             {
-                Encoding.UTF8.GetBytes(pStr, str.Length, pBuffer, byteCount);
-                pBuffer[byteCount] = 0;
-                Pointer = pBuffer;
-                Length = byteCount;
+                fixed (byte* pBuffer = _fixedBuffer)
+                {
+                    Encoding.UTF8.GetBytes(pStr, str.Length, pBuffer, byteCount);
+                    pBuffer[byteCount] = 0;
+                    Pointer = (nint)pBuffer;
+                }
+            }
+            else
+            {
+                _allocatedPtr = (byte*)Marshal.AllocHGlobal(requiredSize);
+                _isHeapAllocated = true;
+                Encoding.UTF8.GetBytes(pStr, str.Length, _allocatedPtr, byteCount);
+                _allocatedPtr[byteCount] = 0;
+                Pointer = (nint)_allocatedPtr;
             }
         }
     }
 
-    public void Dispose() => Pointer = null;
+    public void Dispose()
+    {
+        if (_isHeapAllocated && _allocatedPtr != null)
+        {
+            Marshal.FreeHGlobal((IntPtr)_allocatedPtr);
+            _allocatedPtr = null;
+            _isHeapAllocated = false;
+        }
+
+        Pointer = IntPtr.Zero;
+    }
 }

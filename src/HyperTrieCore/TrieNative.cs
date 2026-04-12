@@ -50,7 +50,7 @@ public sealed class TrieNative(int size, int numHashes = 5) : IDisposable
     public unsafe void Insert(string word)
     {
         using var wordPtr = new Utf8String(word);
-        trie_insert(_handle, (nint)wordPtr.Pointer);
+        trie_insert(_handle, wordPtr.Pointer);
     }
 
     /// <summary>
@@ -63,7 +63,7 @@ public sealed class TrieNative(int size, int numHashes = 5) : IDisposable
         var result = new List<string>();
 
         using var prefixPtr = new Utf8String(prefix);
-        nint* wordsPtr = (IntPtr*)trie_words_with_prefix(_handle, (nint)prefixPtr.Pointer, out UIntPtr len);
+        nint* wordsPtr = (IntPtr*)trie_words_with_prefix(_handle, prefixPtr.Pointer, out UIntPtr len);
         uint count = len.ToUInt32();
 
         if (wordsPtr == null || count == 0)
@@ -108,7 +108,7 @@ public sealed class TrieNative(int size, int numHashes = 5) : IDisposable
     public unsafe bool Contains(string word)
     {
         using var testWord = new Utf8String(word);
-        return trie_contains(_handle, (nint)testWord.Pointer);
+        return trie_contains(_handle, testWord.Pointer);
     }
 
     /// <summary>
