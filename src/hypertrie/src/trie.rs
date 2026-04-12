@@ -32,7 +32,7 @@ impl Trie {
     pub fn new(size: usize, num_hashes: usize) -> Self {
         Trie {
             root: Box::new(Node::new('\0')),
-            bloom_filter: BloomFilter::new(size, num_hashes)
+            bloom_filter: BloomFilter::new(size, num_hashes),
         }
     }
 
@@ -76,7 +76,10 @@ impl Trie {
     fn debug_print(&self, node: &Node, indent: usize) {
         let padding = "  ".repeat(indent);
         if node.letter != '\0' {
-            println!("{}'{}' (end_of_word: {})", padding, node.letter, node.end_of_word);
+            println!(
+                "{}'{}' (end_of_word: {})",
+                padding, node.letter, node.end_of_word
+            );
         }
         for child in node.children.iter().flatten() {
             self.debug_print(child, indent + 1);
@@ -127,7 +130,7 @@ mod tests {
         let mut trie = Trie::new(100, 3);
         trie.insert("hello");
         trie.insert("world");
-        
+
         assert!(trie.contains("hello"));
         assert!(trie.contains("world"));
         assert!(!trie.contains("hell"));

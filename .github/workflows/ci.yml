@@ -2,14 +2,14 @@ name: CI
 
 on:
   push:
-    branches: [ main ]
   pull_request:
-    branches: [ main ]
 
 jobs:
   rust-ci:
     name: Rust CI
     runs-on: ubuntu-latest
+    env:
+      RUSTFLAGS: "-C target-feature=+aes,+sse2"
     steps:
       - uses: actions/checkout@v4
 
@@ -33,6 +33,8 @@ jobs:
   csharp-ci:
     name: C# CI
     runs-on: ubuntu-latest
+    env:
+      RUSTFLAGS: "-C target-feature=+aes,+sse2"
     steps:
       - uses: actions/checkout@v4
         with:
