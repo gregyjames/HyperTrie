@@ -27,7 +27,9 @@ pub struct Trie {
 
 impl Trie {
     pub fn new(size: usize, num_hashes: usize) -> Self {
-        let optimized_size = size.checked_next_power_of_two().expect("Next power of 2 usize overflow");
+        let optimized_size = size
+            .checked_next_power_of_two()
+            .expect("Next power of 2 usize overflow");
 
         let mut nodes = Vec::with_capacity(1024);
         nodes.push(Node::new(0));
@@ -141,7 +143,12 @@ impl Trie {
         results
     }
 
-    fn collect_words_from_node(&self, node_idx: usize, buffer: &mut Vec<u8>, results: &mut Vec<String>) {
+    fn collect_words_from_node(
+        &self,
+        node_idx: usize,
+        buffer: &mut Vec<u8>,
+        results: &mut Vec<String>,
+    ) {
         let node = &self.nodes[node_idx];
 
         // If this node marks the end of a word, save the current buffer
