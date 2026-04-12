@@ -36,7 +36,11 @@ class Build : NukeBuild
             DotNetTest(s => s
                 .SetProjectFile(Solution)
                 .SetConfiguration(Config)
-                .SetNoBuild(true));
+                .SetNoBuild(true)
+                .SetVerbosity(DotNetVerbosity.normal)
+                .SetProperty("CollectCoverage", "true")
+                .SetProperty("CoverletOutputFormat", "cobertura")
+                .SetProperty("CoverletOutput", "coverage"));
         });
 
     [Parameter("Configuration to build - Default is 'Debug' (local) or 'Release' (server)")]
