@@ -1,5 +1,4 @@
 using System.Buffers;
-using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Text;
 
@@ -44,27 +43,38 @@ public class TrieNative(int size, int numHashes) : IDisposable
         trie_insert(_handle, wordPtr.Pointer);
     }
 
-    public List<string> GetWordsWithPrefix(string prefix)
+    public unsafe List<string> GetWordsWithPrefix(string prefix)
     {
         var result = new List<string>();
         
         using var prefixPtr = new Utf8String(prefix);
-        var wordsPtr = trie_words_with_prefix(_handle, prefixPtr.Pointer, out var len);
-        var length = len.ToUInt64();
+        var wordsPtr = (IntPtr*)trie_words_with_prefix(_handle, prefixPtr.Pointer, out var len);
+        var count = len.ToUInt32();
 
-        if (wordsPtr != IntPtr.Zero && length > 0)
+        if (wordsPtr == null || count == 0)
         {
-            IntPtr[] stringPtrs = new IntPtr[length];
-            Marshal.Copy(wordsPtr, stringPtrs, 0, (int)length);
+            return new List<string>(0);
+        }
 
-            for (ulong i = 0; i < length; i++)
+        try
+        {
+            for (uint i = 0; i < count; i++)
             {
-                string? word = Marshal.PtrToStringUTF8(stringPtrs[i]);
-                if (word != null) result.Add(word);
-            }
+                var currentWordPtr = wordsPtr[i];
 
-            // Free the words array & strings
-            trie_free_words(wordsPtr, len);
+                if (currentWordPtr != IntPtr.Zero)
+                {
+                    var word = Marshal.PtrToStringUTF8(currentWordPtr);
+                    if (word != null)
+                    {
+                        result.Add(word);
+                    }
+                }
+            }
+        }
+        finally
+        {
+            trie_free_words((IntPtr)wordsPtr, len);
         }
         
         return result;
