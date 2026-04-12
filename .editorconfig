@@ -1,0 +1,90 @@
+root = true
+
+[*.{cs,csx}]
+# -----------------------------------------------------------------------------
+# Core Formatting & Layout
+# -----------------------------------------------------------------------------
+indent_style = space
+indent_size = 4
+insert_final_newline = true
+trim_trailing_whitespace = true
+column_limit = 120
+
+# -----------------------------------------------------------------------------
+# Nullability & Safety (The "Kill All Nulls" Section)
+# -----------------------------------------------------------------------------
+# Prefer 'is null' over '== null' to avoid operator overhead/accidental recursion
+csharp_style_null_check_over_type_check = true:error
+dotnet_style_null_check_over_type_check = true:error
+
+# Enforce Nullable Reference Types usage
+dotnet_diagnostic.CS8600.severity = error # Converting null literal to non-nullable
+dotnet_diagnostic.CS8602.severity = error # Dereference of a possibly null reference
+dotnet_diagnostic.CS8603.severity = error # Possible null reference return
+
+# -----------------------------------------------------------------------------
+# Performance & Unsafe Logic (Strict for HyperTrie)
+# -----------------------------------------------------------------------------
+# CA1822: Mark members as static (Removes 'this' pointer passing in hot paths)
+dotnet_diagnostic.CA1822.severity = error
+
+# CA1806: Do not ignore method results (Crucial for FFI return codes)
+dotnet_diagnostic.CA1806.severity = error
+
+# CA1821: Remove empty Finalizers (Finalizers are expensive; remove if empty)
+dotnet_diagnostic.CA1821.severity = error
+
+# CA1852: Seal internal types (Enables devirtualization optimizations)
+dotnet_diagnostic.CA1852.severity = error
+
+# CA1834: Use StringBuilder.Append(char) instead of StringBuilder.Append(string)
+dotnet_diagnostic.CA1834.severity = error
+
+# -----------------------------------------------------------------------------
+# Language Strictness (Errors only)
+# -----------------------------------------------------------------------------
+# Enforce braces (No "if (x) do_thing;" without braces)
+csharp_prefer_braces = true:error
+
+# Enforce 'readonly' for fields that aren't reassigned
+dotnet_style_readonly_field = true:error
+
+# Enforce 'var' when type is apparent, but NOT for built-in types (clarity)
+csharp_style_var_when_type_is_apparent = true:error
+csharp_style_var_for_built_in_types = false:error
+
+# IDE0005: Remove unused imports (Keeps metadata bloat down)
+dotnet_diagnostic.IDE0005.severity = error
+
+# IDE0051 & IDE0052: Remove unused private members/fields
+dotnet_diagnostic.IDE0051.severity = error
+dotnet_diagnostic.IDE0052.severity = error
+
+# -----------------------------------------------------------------------------
+# Naming Conventions (Enforce PascalCase for Public)
+# -----------------------------------------------------------------------------
+dotnet_naming_rule.public_members_must_be_pascal_case.symbols = public_symbols
+dotnet_naming_rule.public_members_must_be_pascal_case.style = pascal_case_style
+dotnet_naming_rule.public_members_must_be_pascal_case.severity = error
+
+dotnet_naming_symbols.public_symbols.applicable_kinds = method, property, event, field
+dotnet_naming_symbols.public_symbols.applicable_accessibilities = public
+dotnet_naming_style.pascal_case_style.capitalization = pascal_case
+
+# -----------------------------------------------------------------------------
+# Modern C# Features
+# -----------------------------------------------------------------------------
+csharp_style_prefer_primary_constructors = true:error
+csharp_style_prefer_utf8_string_literals = true:error
+csharp_style_expression_bodied_methods = true:error
+csharp_style_implicit_object_creation_when_type_is_apparent = true:error
+
+# -----------------------------------------------------------------------------
+# Rust Specifics
+# -----------------------------------------------------------------------------
+[*.rs]
+indent_style = space
+indent_size = 4
+insert_final_newline = true
+# Use Clippy for Rust-side strictness: #![deny(clippy::all, clippy::pedantic)]
+
