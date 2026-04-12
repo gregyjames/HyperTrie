@@ -32,6 +32,7 @@ var content = client.GetStringAsync(url).Result;
 var allWords = content.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries).Select(x => x.ToLower().Trim()).ToList();
 var trieNative = new TrieNative(allWords.Count(), 3);
 trieNative.BulkInsert(allWords);
+trie.Contains("apple");
 ```
 
 ## Benchmark
