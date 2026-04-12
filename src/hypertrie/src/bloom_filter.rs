@@ -3,7 +3,6 @@ use gxhash::GxHasher;
 use std::hash::Hasher;
 
 const SEED: i64 = 1846279233212321312;
-const SEED2: i64 = 918273645546372819;
 
 pub struct BloomFilter {
     bit_array: BitVec,
