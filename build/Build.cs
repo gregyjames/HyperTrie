@@ -38,6 +38,7 @@ sealed class Build : NukeBuild
                 .SetConfiguration(Config)
                 .SetNoBuild(true)
                 .SetVerbosity(DotNetVerbosity.normal)
+                .SetLoggers($"junit;LogFilePath={TestResultsDirectory}/junit.xml")
                 .SetProperty("CollectCoverage", "true")
                 .SetProperty("CoverletOutputFormat", "cobertura")
                 .SetProperty("CoverletOutput", "coverage"));
@@ -71,6 +72,7 @@ sealed class Build : NukeBuild
     AbsolutePath NativeOutputPath => HyperTrieCorePath / "runtimes";
     AbsolutePath LibraryProjectPath => HyperTrieCorePath / "HyperTrieCore.csproj";
     AbsolutePath PackageOutputPath => ArtifactsDirectory / "packages";
+    AbsolutePath TestResultsDirectory => ArtifactsDirectory / "TestResults";
 
     // Platform definitions for local cross-compilation
     static readonly (string Rid, string Target, string LibName, string RustFlags)[] Platforms =
