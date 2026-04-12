@@ -27,12 +27,14 @@ pub struct Trie {
 
 impl Trie {
     pub fn new(size: usize, num_hashes: usize) -> Self {
+        let optimized_size = size.checked_next_power_of_two().expect("Next power of 2 usize overflow");
+
         let mut nodes = Vec::with_capacity(1024);
         nodes.push(Node::new(0));
 
         Trie {
             nodes,
-            bloom_filter: BloomFilter::new(size, num_hashes),
+            bloom_filter: BloomFilter::new(optimized_size, num_hashes),
         }
     }
 

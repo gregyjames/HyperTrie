@@ -24,7 +24,8 @@ impl BloomFilter {
         let base_hash = self.get_base_hash(item);
         for i in 0..self.num_hashes {
             let final_hash = self.derive_hash(base_hash, i);
-            self.bit_array.set(final_hash % self.size, true);
+            let index = final_hash & (self.size - 1);
+            self.bit_array.set(index, true);
         }
     }
 
@@ -32,8 +33,9 @@ impl BloomFilter {
         let base_hash = self.get_base_hash(item);
         for i in 0..self.num_hashes {
             let final_hash = self.derive_hash(base_hash, i);
+            let index = final_hash & (self.size - 1);
 
-            if !self.bit_array.get(final_hash % self.size).unwrap_or(false) {
+            if !self.bit_array.get(index).unwrap_or(false) {
                 return false;
             }
         }
