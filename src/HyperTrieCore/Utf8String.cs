@@ -8,10 +8,18 @@ namespace HyperTrieCore;
 /// </summary>
 internal unsafe ref struct Utf8String : IDisposable
 {
-    public IntPtr Pointer { get; private set; }
+    private const int STACK_THRESHOLD = 256;
+    // ReSharper disable once PrivateFieldCanBeConvertedToLocalVariable
+    private fixed byte _fixedBuffer[STACK_THRESHOLD];
+    private byte* _allocatedPtr;
+    private bool _isHeapAllocated;
+    public IntPtr Pointer {get; private set;}
 
     public Utf8String(string str)
     {
+        _allocatedPtr = null;
+        _isHeapAllocated = false;
+
         if (string.IsNullOrEmpty(str))
         {
             Pointer = IntPtr.Zero;
@@ -20,32 +28,38 @@ internal unsafe ref struct Utf8String : IDisposable
 
         fixed (char* pStr = str)
         {
-            int byteCount = Encoding.UTF8.GetByteCount(pStr, str.Length);
+            int byteCount = Encoding.UTF8.GetByteCount(str);
+            int requiredSize = byteCount + 1; // +1 for null terminator
 
-            Pointer = Marshal.AllocHGlobal(byteCount + 1);
-
-            byte* pDest = (byte*)Pointer;
-            Encoding.UTF8.GetBytes(pStr, str.Length, pDest, byteCount);
-
-            pDest[byteCount] = 0;
+            if (requiredSize <= STACK_THRESHOLD)
+            {
+                fixed (byte* pBuffer = _fixedBuffer)
+                {
+                    Encoding.UTF8.GetBytes(pStr, str.Length, pBuffer, byteCount);
+                    pBuffer[byteCount] = 0;
+                    Pointer = (nint)pBuffer;
+                }
+            }
+            else
+            {
+                _allocatedPtr = (byte*)Marshal.AllocHGlobal(requiredSize);
+                _isHeapAllocated = true;
+                Encoding.UTF8.GetBytes(pStr, str.Length, _allocatedPtr, byteCount);
+                _allocatedPtr[byteCount] = 0;
+                Pointer = (nint)_allocatedPtr;
+            }
         }
     }
 
-    private bool _disposed = false;
-
     public void Dispose()
     {
-        if (_disposed)
+        if (_isHeapAllocated && _allocatedPtr != null)
         {
-            return;
+            Marshal.FreeHGlobal((IntPtr)_allocatedPtr);
+            _allocatedPtr = null;
+            _isHeapAllocated = false;
         }
 
-        if (Pointer != IntPtr.Zero)
-        {
-            Marshal.FreeHGlobal(Pointer);
-            Pointer = IntPtr.Zero;
-        }
-
-        _disposed = true;
+        Pointer = IntPtr.Zero;
     }
 }
