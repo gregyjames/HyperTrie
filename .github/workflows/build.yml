@@ -37,7 +37,7 @@ jobs:
 
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
@@ -53,7 +53,7 @@ jobs:
           target: ${{ matrix.target }}
 
       - name: Install .NET SDK
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@v5
         with:
           dotnet-version: '8.0.x'
 
@@ -71,7 +71,7 @@ jobs:
             --version "$CLEAN_VERSION"
 
       - name: Upload Library
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ${{ matrix.runtime_id }}
           path: src/HyperTrieCore/runtimes/${{ matrix.runtime_id }}
@@ -81,17 +81,17 @@ jobs:
     runs-on: ubuntu-latest
     if: always() && needs.build-rust.result == 'success'
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
       - name: Install .NET SDK
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@v5
         with:
           dotnet-version: '8.0.x'
 
       - name: Download all native libraries
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           path: src/HyperTrieCore/runtimes
           merge-multiple: false
@@ -111,7 +111,7 @@ jobs:
             --version "$CLEAN_VERSION"
 
       - name: Create Release
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         with:
           files: artifacts/packages/*.nupkg
           generate_release_notes: true
