@@ -4,6 +4,7 @@
     <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
   </PropertyGroup>
   <ItemGroup>
+    <PackageVersion Include="JunitXml.TestLogger" Version="8.0.0" />
     <PackageVersion Include="Nuke.Common" Version="9.0.4" />
     <PackageVersion Include="Nuke.Components" Version="9.0.4" />
     <PackageVersion Include="BenchmarkDotNet" Version="0.15.8" />
