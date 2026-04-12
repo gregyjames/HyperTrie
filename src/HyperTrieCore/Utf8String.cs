@@ -16,14 +16,14 @@ internal unsafe ref struct Utf8String : IDisposable
         {
             Pointer = IntPtr.Zero;
             return;
-        };
-        
+        }
+
         fixed (char* pStr = str)
         {
             int byteCount = Encoding.UTF8.GetByteCount(pStr, str.Length);
-            
+
             Pointer = Marshal.AllocHGlobal(byteCount + 1);
-            
+
             byte* pDest = (byte*)Pointer;
             Encoding.UTF8.GetBytes(pStr, str.Length, pDest, byteCount);
 
@@ -35,7 +35,10 @@ internal unsafe ref struct Utf8String : IDisposable
 
     public void Dispose()
     {
-        if (_disposed) return;
+        if (_disposed)
+        {
+            return;
+        }
 
         if (Pointer != IntPtr.Zero)
         {

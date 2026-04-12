@@ -16,24 +16,25 @@ BenchmarkRunner.Run<TrieBenchmarks>(config);
 [RankColumn]
 public class TrieBenchmarks
 {
-    private const string Url = "https://raw.githubusercontent.com/dolph/dictionary/master/enable1.txt";
-    private const int NumTries = 500;
+    private const string URL = "https://raw.githubusercontent.com/dolph/dictionary/master/enable1.txt";
+    private const int NUM_TRIES = 500;
 
     private List<string> _allWords = null!;
     private int[] _randomIndices = null!;
+    private static readonly char[] Separator = ['\r', '\n'];
 
     [GlobalSetup]
     public void GlobalSetup()
     {
         using var client = new HttpClient();
-        var content = client.GetStringAsync(Url).Result;
+        string content = client.GetStringAsync(URL).Result;
         _allWords = content
-            .Split(new char[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries)
+            .Split(Separator, StringSplitOptions.RemoveEmptyEntries)
             .Select(x => x.ToLower().Trim())
             .ToList();
 
         var random = new Random(42);
-        _randomIndices = Enumerable.Range(0, NumTries)
+        _randomIndices = Enumerable.Range(0, NUM_TRIES)
             .Select(_ => random.Next(0, _allWords.Count))
             .ToArray();
     }
@@ -43,15 +44,16 @@ public class TrieBenchmarks
     {
         var trie = new Trie<string>();
 
-        foreach (var word in _allWords)
+        foreach (string word in _allWords)
         {
             trie.Add(word, word);
         }
 
-        for (int i = 0; i < NumTries; i++)
+
+        for (int i = 0; i < NUM_TRIES; i++)
         {
-            var indx = _randomIndices[i];
-            trie.Retrieve(indx % 2 == 0 ? _allWords[indx] : string.Join("", _allWords[indx].Reverse()));
+            int indx = _randomIndices[i];
+            trie.Retrieve(_allWords[indx]);
         }
     }
 
@@ -62,10 +64,10 @@ public class TrieBenchmarks
 
         trie.BulkInsert(_allWords);
 
-        for (int i = 0; i < NumTries; i++)
+        for (int i = 0; i < NUM_TRIES; i++)
         {
-            var indx = _randomIndices[i];
-            trie.Contains(indx % 2 == 0 ? _allWords[indx] : string.Join("", _allWords[indx].Reverse()));
+            int indx = _randomIndices[i];
+            trie.Contains(_allWords[indx]);
         }
     }
 }

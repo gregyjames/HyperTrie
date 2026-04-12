@@ -12,7 +12,7 @@ updates:
   - package-ecosystem: "nuget"
     directory: "/"
     schedule:
-      interval: "weekly"
+      interval: "daily"
     groups:
       dotnet-dependencies:
         patterns:

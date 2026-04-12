@@ -36,7 +36,7 @@ public class TrieTests
         trie.Insert("app");
         trie.Insert("application");
         
-        var results = trie.GetWordsWithPrefix("app");
+        var results = trie.GetWordsWithPrefix("app").ToList();
         
         Assert.Equal(3, results.Count);
         Assert.Contains("apple", results);

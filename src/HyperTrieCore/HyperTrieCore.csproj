@@ -24,8 +24,39 @@
         <PackageRequireLicenseAcceptance>true</PackageRequireLicenseAcceptance>
         <TargetFrameworks>net10.0;net8.0;netstandard2.1;net6.0;net7.0;net9.0</TargetFrameworks>
         <LangVersion>latest</LangVersion>
+        <AnalysisLevel>latest-all</AnalysisLevel>
+        <AnalysisMode>All</AnalysisMode>
+        <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+        <CodeAnalysisTreatWarningsAsErrors>true</CodeAnalysisTreatWarningsAsErrors>
+        <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+        <WarningLevel>4</WarningLevel>
+        <NoWarn>NU1507,CA1002,CA5392</NoWarn>
+        <Nullable>enable</Nullable>
+        <GenerateDocumentationFile>true</GenerateDocumentationFile>
+        <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+        <NoDynamic>true</NoDynamic>
+        <CheckForOverflowUnderflow>true</CheckForOverflowUnderflow>
+        <SkipLocalsInit>true</SkipLocalsInit>
+        <OptimizationPreference>Speed</OptimizationPreference>
+        <InvariantGlobalization>true</InvariantGlobalization>
+        <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     </PropertyGroup>
 
+    <PropertyGroup Condition="$([MSBuild]::IsTargetFrameworkCompatible('$(TargetFramework)', 'net8.0'))">
+        <PublishAot>true</PublishAot>
+        <PublishTrimmed>true</PublishTrimmed>
+        <TrimMode>full</TrimMode>
+    </PropertyGroup>
+    
+    <PropertyGroup Condition="'$(Configuration)' == 'Release'">
+        <DebugSymbols>false</DebugSymbols>
+        <DebugType>none</DebugType>
+        <CheckForOverflowUnderflow>false</CheckForOverflowUnderflow>
+        <Deterministic>true</Deterministic>
+        <EventSourceSupport>false</EventSourceSupport>
+        <StackTraceSupport>false</StackTraceSupport>
+    </PropertyGroup>
+    
     <!-- Native libraries for all platforms -->
     <ItemGroup>
         <None Include="..\..\trie.png" Pack="True" PackagePath="" Link="trie.png" />
@@ -38,6 +69,10 @@
         <None Include="..\..\LICENSE.md" Pack="true" PackagePath="/" />
     </ItemGroup>
     <ItemGroup>
+      <PackageReference Include="SonarAnalyzer.CSharp">
+        <PrivateAssets>all</PrivateAssets>
+        <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      </PackageReference>
       <PackageReference Include="System.Runtime.CompilerServices.Unsafe" />
     </ItemGroup>
 
