@@ -133,32 +133,10 @@ class Build : NukeBuild
 
     Target Compile => _ => _
         .DependsOn(Restore)
+        .DependsOn(BuildRustLocal)
         .Executes(() =>
         {
             var version = Version ?? "1.0.0";
-
-            // Local development helper: Auto-build native lib if missing
-            if (IsLocalBuild)
-            {
-                var currentRid = RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ? (Environment.Is64BitProcess ? "win-x64" : "win-x86") :
-                                 RuntimeInformation.IsOSPlatform(OSPlatform.Linux) ? "linux-x64" :
-                                 RuntimeInformation.IsOSPlatform(OSPlatform.OSX) ? "osx-arm64" : null;
-
-                if (currentRid != null)
-                {
-                    var platform = Platforms.FirstOrDefault(p => p.Rid == currentRid);
-                    if (platform != default)
-                    {
-                        var libPath = NativeOutputPath / platform.Rid / "native" / platform.LibName;
-                        if (!File.Exists(libPath))
-                        {
-                            Serilog.Log.Information($"Native library missing for {currentRid}. Triggering automatic build...");
-                            BuildRustForTarget(platform.Target, platform.Rid, platform.LibName, platform.RustFlags);
-                        }
-                    }
-                }
-            }
-
             Serilog.Log.Information("Building version {Version}...", version);
 
             DotNetBuild(s => s
@@ -166,6 +144,31 @@ class Build : NukeBuild
                 .SetConfiguration(Config)
                 .SetNoRestore(true)
                 .SetProperty("Version", version));
+        });
+
+    Target BuildRustLocal => _ => _
+        .OnlyWhenStatic(() => IsLocalBuild)
+        .Executes(() =>
+        {
+            var currentRid = RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ? (Environment.Is64BitProcess ? "windows-x64" : "windows-x86") :
+                             RuntimeInformation.IsOSPlatform(OSPlatform.Linux) ? "linux-x64" :
+                             RuntimeInformation.IsOSPlatform(OSPlatform.OSX) ? "osx-arm64" : null;
+
+            if (currentRid == null)
+            {
+                Serilog.Log.Warning("Could not determine current Runtime Identifier. Skipping native build.");
+                return;
+            }
+
+            var platform = Platforms.FirstOrDefault(p => p.Rid == currentRid);
+            if (platform == default)
+            {
+                Serilog.Log.Warning($"Current RID {currentRid} is not in the supported platforms list. Skipping native build.");
+                return;
+            }
+
+            Serilog.Log.Information($"Ensuring Rust library is up to date for {currentRid}...");
+            BuildRustForTarget(platform.Target, platform.Rid, platform.LibName, platform.RustFlags);
         });
 
     Target Pack => _ => _
