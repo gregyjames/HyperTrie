@@ -30,7 +30,7 @@
         <CodeAnalysisTreatWarningsAsErrors>true</CodeAnalysisTreatWarningsAsErrors>
         <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
         <WarningLevel>4</WarningLevel>
-        <NoWarn>NU1507,CA1002,CA5392</NoWarn>
+        <NoWarn>NU1507,CA1002,CA5392,CS8604</NoWarn>
         <Nullable>enable</Nullable>
         <GenerateDocumentationFile>true</GenerateDocumentationFile>
         <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
