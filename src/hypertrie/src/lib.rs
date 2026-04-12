@@ -1,4 +1,4 @@
-use std::ffi::{CString, CStr};
+use std::ffi::{CStr, CString};
 use std::os::raw::c_char;
 use std::ptr;
 use std::slice;
@@ -33,7 +33,9 @@ pub unsafe extern "C" fn trie_free(trie: *mut Trie) {
 /// The caller must ensure that both `trie` and `word` are valid pointers.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn trie_insert(trie: *mut Trie, word: *const c_char) {
-    if trie.is_null() || word.is_null() { return; }
+    if trie.is_null() || word.is_null() {
+        return;
+    }
     let c_str = CStr::from_ptr(word);
     if let Ok(word_str) = c_str.to_str() {
         (*trie).insert(word_str);
@@ -46,7 +48,9 @@ pub unsafe extern "C" fn trie_insert(trie: *mut Trie, word: *const c_char) {
 /// The caller must ensure that both `trie` and `word` are valid pointers.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn trie_contains(trie: *const Trie, word: *const c_char) -> bool {
-    if trie.is_null() || word.is_null() { return false; }
+    if trie.is_null() || word.is_null() {
+        return false;
+    }
     let c_str = CStr::from_ptr(word);
     match c_str.to_str() {
         Ok(word_str) => (*trie).contains(word_str),
@@ -112,7 +116,9 @@ pub unsafe extern "C" fn trie_words_with_prefix(
 /// The caller must ensure that `words` is a valid pointer to an array of `len` elements.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn trie_free_words(words: *mut *mut c_char, len: usize) {
-    if words.is_null() || len == 0 { return; }
+    if words.is_null() || len == 0 {
+        return;
+    }
     let slice = slice::from_raw_parts(words, len);
     for &ptr in slice {
         if !ptr.is_null() {
@@ -127,8 +133,14 @@ pub unsafe extern "C" fn trie_free_words(words: *mut *mut c_char, len: usize) {
 /// This function is unsafe because it dereferences raw pointers.
 /// The caller must ensure that both `trie` and `words` are valid pointers.
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn trie_bulk_insert(trie: *mut Trie, words: *const *const c_char, len: usize) {
-    if trie.is_null() || words.is_null() || len == 0 { return; }
+pub unsafe extern "C" fn trie_bulk_insert(
+    trie: *mut Trie,
+    words: *const *const c_char,
+    len: usize,
+) {
+    if trie.is_null() || words.is_null() || len == 0 {
+        return;
+    }
     let slice = slice::from_raw_parts(words, len);
     let trie = &mut *trie;
     #[allow(clippy::collapsible_if)]

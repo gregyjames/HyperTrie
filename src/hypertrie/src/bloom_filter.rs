@@ -1,6 +1,6 @@
-use std::hash::Hasher;
 use bit_vec::BitVec;
 use gxhash::GxHasher;
+use std::hash::Hasher;
 
 const SEED: i64 = 1846279233212321312;
 
@@ -39,11 +39,11 @@ impl BloomFilter {
 
     fn hash_item(&self, item: &str) -> Vec<usize> {
         let mut hashes = Vec::new();
-        
+
         for i in 0..self.num_hashes {
             let mut hasher = GxHasher::with_seed(SEED);
             let input = item.as_bytes();
-            
+
             hasher.write(input);
             hasher.write(&[i as u8]); // Adding a unique salt to make the hashes different
 
@@ -52,4 +52,4 @@ impl BloomFilter {
         }
         hashes
     }
-} 
+}
