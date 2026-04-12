@@ -3,6 +3,7 @@ use gxhash::GxHasher;
 use std::hash::Hasher;
 
 const SEED: i64 = 1846279233212321312;
+const SEED2: i64 = 918273645546372819;
 
 pub struct BloomFilter {
     bit_array: BitVec,
@@ -12,45 +13,48 @@ pub struct BloomFilter {
 
 impl BloomFilter {
     pub fn new(size: usize, num_hashes: usize) -> Self {
-        let bit_array = BitVec::from_elem(size, false);
         BloomFilter {
-            bit_array,
+            bit_array: BitVec::from_elem(size, false),
             size,
             num_hashes,
         }
     }
 
     pub fn insert(&mut self, item: &str) {
-        let hashes = self.hash_item(item);
-        for hash in hashes {
-            self.bit_array.set(hash % self.size, true);
+        let base_hash = self.get_base_hash(item);
+        for i in 0..self.num_hashes {
+            let final_hash = self.derive_hash(base_hash, i);
+            self.bit_array.set(final_hash % self.size, true);
         }
     }
 
     pub fn contains(&self, item: &str) -> bool {
-        let hashes = self.hash_item(item);
-        for hash in hashes {
-            if !self.bit_array[hash % self.size] {
-                return false; // Definitely not in the set
+        let base_hash = self.get_base_hash(item);
+        for i in 0..self.num_hashes {
+            let final_hash = self.derive_hash(base_hash, i);
+
+            if !self.bit_array.get(final_hash % self.size).unwrap_or(false) {
+                return false;
             }
         }
         true // Maybe in the set (false positives possible)
     }
 
-    fn hash_item(&self, item: &str) -> Vec<usize> {
-        let mut hashes = Vec::new();
+    #[inline(always)]
+    fn get_base_hash(&self, item: &str) -> u64 {
+        let mut hasher = GxHasher::with_seed(SEED);
+        hasher.write(item.as_bytes());
+        hasher.finish()
+    }
 
-        for i in 0..self.num_hashes {
-            let mut hasher = GxHasher::with_seed(SEED);
-            let input = item.as_bytes();
-
-            hasher.write(input);
-            hasher.write(&[i as u8]); // Adding a unique salt to make the hashes different
-
-            let hash = hasher.finish() as usize;
-            hashes.push(hash);
-        }
-        hashes
+    /// Derive subsequent hashes from the base hash + index
+    /// This is significantly faster than hashing the string again
+    #[inline(always)]
+    fn derive_hash(&self, base_hash: u64, index: usize) -> usize {
+        let mut hasher = GxHasher::with_seed(SEED);
+        hasher.write_u64(base_hash);
+        hasher.write_usize(index);
+        hasher.finish() as usize
     }
 }
 
@@ -177,12 +181,22 @@ mod tests {
     }
 
     // --- hash_item determinism ---
+    /// Helper to collect hashes for testing since we removed hash_item from the API
+    fn get_hashes(bf: &BloomFilter, item: &str) -> Vec<usize> {
+        let mut hashes = Vec::new();
+        let base_hash = bf.get_base_hash(item);
+        for i in 0..bf.num_hashes {
+            let final_hash = bf.derive_hash(base_hash, i);
+            hashes.push(final_hash % bf.size);
+        }
+        hashes
+    }
 
     #[test]
     fn test_hashing_is_deterministic() {
         let bf = make_filter(1024, 3);
-        let h1 = bf.hash_item("stable");
-        let h2 = bf.hash_item("stable");
+        let h1 = get_hashes(&bf, "stable");
+        let h2 = get_hashes(&bf, "stable");
         assert_eq!(h1, h2);
     }
 
@@ -191,7 +205,7 @@ mod tests {
         // Each of the num_hashes slots should (almost certainly) differ for a
         // non-degenerate input, confirming the per-index salt is applied.
         let bf = make_filter(1024, 4);
-        let hashes = bf.hash_item("salt_test");
+        let hashes = get_hashes(&bf, "salt_test");
         // Not all hashes should be equal — if they were, the filter would
         // only ever set/check one bit position regardless of num_hashes.
         let unique: std::collections::HashSet<usize> = hashes.iter().copied().collect();
@@ -201,7 +215,8 @@ mod tests {
     #[test]
     fn test_hash_count_matches_num_hashes() {
         let bf = make_filter(1024, 5);
-        assert_eq!(bf.hash_item("count").len(), 5);
+        let hashes = get_hashes(&bf, "count");
+        assert_eq!(hashes.len(), 5, "Should generate exactly num_hashes values");
     }
 
     // --- false positive rate sanity check ---
