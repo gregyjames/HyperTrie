@@ -57,7 +57,7 @@ public sealed class TrieNative(int size, int numHashes = 5) : IDisposable
     /// Returns a list of strings matching the specified prefix.
     /// </summary>
     /// <param name="prefix">The prefix to search for.</param>
-    /// <returns></returns>
+    /// <returns>An IEnumerable of matched words.</returns>
     public unsafe IEnumerable<string> GetWordsWithPrefix(string prefix)
     {
         var result = new List<string>();
@@ -104,7 +104,7 @@ public sealed class TrieNative(int size, int numHashes = 5) : IDisposable
     /// Checks if the word exists in the TrieNative.
     /// </summary>
     /// <param name="word">The word to search for.</param>
-    /// <returns></returns>
+    /// <returns>A bool representing if the word is found or not.</returns>
     public bool Contains(string word)
     {
         using var testWord = new Utf8String(word);
