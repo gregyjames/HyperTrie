@@ -16,8 +16,11 @@ jobs:
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
         with:
-          components: clippy, rustfmt
+          components: clippy, rustfmt, llvm-tools-preview
 
+      - name: Install cargo-llvm-cov
+        uses: taiki-e/install-action@cargo-llvm-cov
+          
       - name: Check formatting
         run: cargo fmt --all -- --check
         working-directory: src/hypertrie
@@ -26,10 +29,18 @@ jobs:
         run: cargo clippy -- -D warnings
         working-directory: src/hypertrie
 
-      - name: Rust Tests
-        run: cargo test
+      - name: Rust Tests + Coverage
+        run: cargo llvm-cov --all-features --codecov --output-path codecov.json
         working-directory: src/hypertrie
 
+      - name: Upload Rust coverage
+        uses: codecov/codecov-action@v5
+        with:
+          files: src/hypertrie/codecov.json
+          token: ${{ secrets.CODECOV_TOKEN }}
+          fail_ci_if_error: false
+          flags: rust
+  
   csharp-ci:
     name: C# CI
     runs-on: ubuntu-latest
