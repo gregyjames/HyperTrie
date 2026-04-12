@@ -1,0 +1,11 @@
+component_management:
+  individual_components:
+    - component_id: hypertrie-core
+      name: hypertrie
+      paths:
+        - src/hypertrie/**
+
+    - component_id: hypertrie-wrapper
+      name: HyperTrieCore
+      paths:
+        - src/HyperTrieCore/**
