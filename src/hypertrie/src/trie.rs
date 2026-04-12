@@ -39,7 +39,7 @@ impl Trie {
     pub fn insert(&mut self, word: &str) {
         let mut current = &mut self.root;
 
-        for c in word.to_ascii_lowercase().chars() {
+        for c in word.chars().map(|c| c.to_ascii_lowercase()) {
             let idx = Node::char_to_index(c);
             if current.children[idx].is_none() {
                 current.children[idx] = Some(Box::new(Node::new(c)));
