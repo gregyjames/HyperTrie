@@ -159,9 +159,10 @@ pub unsafe extern "C" fn trie_bulk_insert(
         #[allow(clippy::collapsible_if)]
         for &word_ptr in slice {
             if !word_ptr.is_null() {
-                if let Ok(word) = CStr::from_ptr(word_ptr).to_str() {
-                    trie.insert(word);
-                }
+                let word = unsafe { 
+                    std::str::from_utf8_unchecked(CStr::from_ptr(word_ptr).to_bytes()) 
+                };
+                trie.insert(word);
             }
         }
     }
