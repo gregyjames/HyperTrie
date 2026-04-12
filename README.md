@@ -1,3 +1,11 @@
+[![CI](https://github.com/gregyjames/HyperTrie/actions/workflows/ci.yml/badge.svg)](https://github.com/gregyjames/HyperTrie/actions/workflows/ci.yml)
+[![codecov](https://codecov.io/gh/gregyjames/HyperTrie/graph/badge.svg?token=LgAkld5D6y)](https://codecov.io/gh/gregyjames/HyperTrie)
+![NuGet Downloads](https://img.shields.io/nuget/dt/HyperTrieCore)
+![NuGet Version](https://img.shields.io/nuget/v/HyperTrieCore)
+![GitHub License](https://img.shields.io/github/license/gregyjames/HyperTrie)
+![Rust](https://img.shields.io/badge/rust-%23000000.svg?style=for-the-badge&logo=rust&logoColor=white)
+![C#](https://img.shields.io/badge/c%23-%23239120.svg?style=for-the-badge&logo=csharp&logoColor=white)
+
 ![Alt text](https://raw.githubusercontent.com/gregyjames/HyperTrie/main/mini_trie.png "package icon")
 # HyperTrie
 HyperTrie is a hyper optimized C# prefix tree written in Rust. It is currently the fastest C# Trie implementation, about 601% faster than TrieNet.Core 😮‍💨
