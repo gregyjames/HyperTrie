@@ -86,8 +86,14 @@ jobs:
         shell: bash
         run: |
           chmod +x ./build.sh
-          ./build.sh BuildRustSingle --rust-target x86_64-unknown-linux-gnu --runtime-id linux-x64 --lib-name libhypertrie.so
-          ./build.sh Test --configuration Release
+          
+          SKIP_FLAG=""
+          if [ "${{ steps.nuget-cache.outputs.cache-hit }}" == "true" ]; then
+            SKIP_FLAG="--skip Restore"
+          fi
+          
+          ./build.sh BuildRustSingle $SKIP_FLAG --rust-target x86_64-unknown-linux-gnu --runtime-id linux-x64 --lib-name libhypertrie.so
+          ./build.sh Test $SKIP_FLAG --configuration Release
 
       - name: Upload coverage
         uses: codecov/codecov-action@v6
