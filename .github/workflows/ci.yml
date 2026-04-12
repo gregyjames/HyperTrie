@@ -78,3 +78,4 @@ jobs:
           files: 'artifacts/**/coverage.cobertura.xml'
           token: ${{ secrets.CODECOV_TOKEN }}
           fail_ci_if_error: false
+          flags: csharp
