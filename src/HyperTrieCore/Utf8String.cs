@@ -1,4 +1,3 @@
-using System.Runtime.InteropServices;
 using System.Text;
 
 namespace HyperTrieCore;
@@ -8,44 +7,37 @@ namespace HyperTrieCore;
 /// </summary>
 internal unsafe ref struct Utf8String : IDisposable
 {
-    public IntPtr Pointer { get; private set; }
+    private fixed byte _fixedBuffer[256];
+    public byte* Pointer { get; private set; }
+    public int Length { get; private set; }
 
     public Utf8String(string str)
     {
         if (string.IsNullOrEmpty(str))
         {
-            Pointer = IntPtr.Zero;
+            Pointer = null;
+            Length = 0;
             return;
         }
 
-        fixed (char* pStr = str)
+        int byteCount = Encoding.UTF8.GetByteCount(str);
+
+        if (byteCount >= 256)
         {
-            int byteCount = Encoding.UTF8.GetByteCount(pStr, str.Length);
+            throw new ArgumentException($"{nameof(Utf8String)} is too long.");
+        }
 
-            Pointer = Marshal.AllocHGlobal(byteCount + 1);
-
-            byte* pDest = (byte*)Pointer;
-            Encoding.UTF8.GetBytes(pStr, str.Length, pDest, byteCount);
-
-            pDest[byteCount] = 0;
+        fixed (byte* pBuffer = _fixedBuffer)
+        {
+            fixed (char* pStr = str)
+            {
+                Encoding.UTF8.GetBytes(pStr, str.Length, pBuffer, byteCount);
+                pBuffer[byteCount] = 0;
+                Pointer = pBuffer;
+                Length = byteCount;
+            }
         }
     }
 
-    private bool _disposed = false;
-
-    public void Dispose()
-    {
-        if (_disposed)
-        {
-            return;
-        }
-
-        if (Pointer != IntPtr.Zero)
-        {
-            Marshal.FreeHGlobal(Pointer);
-            Pointer = IntPtr.Zero;
-        }
-
-        _disposed = true;
-    }
+    public void Dispose() => Pointer = null;
 }
