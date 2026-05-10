@@ -52,10 +52,10 @@ impl BloomFilter {
     /// This is significantly faster than hashing the string again
     #[inline(always)]
     fn derive_hash(&self, base_hash: u64, index: usize) -> usize {
-        let mut hasher = GxHasher::with_seed(SEED);
-        hasher.write_u64(base_hash);
-        hasher.write_usize(index);
-        hasher.finish() as usize
+        // Enhanced Double Hashing: hash_i = hash1 + i * hash2
+        // We use the base_hash as hash1, and a secondary hash of base_hash as hash2
+        let hash2 = base_hash.wrapping_mul(0x9e3779b97f4a7c15);
+        base_hash.wrapping_add((index as u64).wrapping_mul(hash2)) as usize
     }
 }
 
