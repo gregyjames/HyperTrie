@@ -1,21 +1,24 @@
 use crate::bloom_filter::BloomFilter;
 
-const ALPHABET_SIZE: usize = 26;
+const NODE_WIDTH: usize = 32; // Power of two for alignment and faster indexing
 
-const CHAR_TO_BIT: [i8; 256] = {
-    let mut table = [-1i8; 256];
+const CHAR_TO_MASK: [u32; 256] = {
+    let mut table = [0u32; 256];
     let mut i = 0;
     while i < 26 {
-        table[(b'a' + i) as usize] = i as i8;
-        table[(b'A' + i) as usize] = i as i8;
+        table[(b'a' + i) as usize] = 1 << i;
+        table[(b'A' + i) as usize] = 1 << i;
         i += 1;
     }
     table
 };
 
 pub struct Trie {
-    masks: Vec<u32>,
-    indices: Vec<u32>, // Flat array of [u32; 26] for each node
+    // Flat array: each node occupies 32 u32 slots.
+    // [0]: mask (bits 0-25 for children, bit 31 for end-of-word)
+    // [1..27]: child indices
+    // [27..31]: unused
+    nodes: Vec<u32>,
     bloom_filter: BloomFilter,
 }
 
@@ -25,21 +28,20 @@ impl Trie {
             .checked_next_power_of_two()
             .expect("Next power of 2 usize overflow");
 
-        // Estimate nodes: each word adds a few nodes, but many are shared.
-        // For a dictionary, it's roughly 2-3x number of words.
         let node_estimate = size * 3 + 1024;
-        let mut masks = Vec::with_capacity(node_estimate);
-        let mut indices = Vec::with_capacity(node_estimate * ALPHABET_SIZE);
+        let mut nodes = Vec::with_capacity(node_estimate * NODE_WIDTH);
 
-        // Root node
-        masks.push(0);
-        indices.extend_from_slice(&[0u32; ALPHABET_SIZE]);
+        // Root node (all zeros)
+        nodes.extend_from_slice(&[0u32; NODE_WIDTH]);
 
         Trie {
-            masks,
-            indices,
+            nodes,
             bloom_filter: BloomFilter::new(optimized_size, num_hashes),
         }
+    }
+
+    pub fn shrink(&mut self) {
+        self.nodes.shrink_to_fit();
     }
 
     pub fn insert(&mut self, word: &str) {
@@ -47,70 +49,63 @@ impl Trie {
         let bytes = word.as_bytes();
 
         for &b in bytes {
-            let bit_idx = unsafe { *CHAR_TO_BIT.get_unchecked(b as usize) };
-            if bit_idx < 0 {
+            let mask_bit = unsafe { *CHAR_TO_MASK.get_unchecked(b as usize) };
+            if mask_bit == 0 {
                 continue;
             }
-            let bit_idx = bit_idx as usize;
+            let bit_idx = mask_bit.trailing_zeros() as usize;
 
-            let mask = unsafe { *self.masks.get_unchecked(current_idx) };
-            if (mask & (1 << bit_idx)) == 0 {
-                let new_node_idx = self.masks.len() as u32;
-                self.masks.push(0);
-                self.indices.extend_from_slice(&[0u32; ALPHABET_SIZE]);
+            let node_offset = current_idx << 5;
+            let mask = unsafe { *self.nodes.get_unchecked(node_offset) };
 
-                let mask_ref = unsafe { self.masks.get_unchecked_mut(current_idx) };
-                *mask_ref |= 1 << bit_idx;
-                let index_ref = unsafe {
-                    self.indices
-                        .get_unchecked_mut(current_idx * ALPHABET_SIZE + bit_idx)
-                };
-                *index_ref = new_node_idx;
+            if (mask & mask_bit) == 0 {
+                let new_node_idx = (self.nodes.len() >> 5) as u32;
+                self.nodes.extend_from_slice(&[0u32; NODE_WIDTH]);
 
+                unsafe {
+                    *self.nodes.get_unchecked_mut(node_offset) |= mask_bit;
+                    *self.nodes.get_unchecked_mut(node_offset + 1 + bit_idx) = new_node_idx;
+                }
                 current_idx = new_node_idx as usize;
             } else {
-                current_idx = unsafe {
-                    *self
-                        .indices
-                        .get_unchecked(current_idx * ALPHABET_SIZE + bit_idx)
-                        as usize
-                };
+                current_idx =
+                    unsafe { *self.nodes.get_unchecked(node_offset + 1 + bit_idx) as usize };
             }
         }
 
-        unsafe { *self.masks.get_unchecked_mut(current_idx) |= 1 << 31 };
+        unsafe {
+            *self.nodes.get_unchecked_mut(current_idx << 5) |= 1 << 31;
+        }
         self.bloom_filter.insert(word);
     }
 
     #[inline(always)]
     pub fn contains(&self, word: &str) -> bool {
-        // Bloom Filter is usually faster than a full Trie walk for non-members
         if !self.bloom_filter.contains(word) {
             return false;
         }
 
         let bytes = word.as_bytes();
         let mut current_idx = 0;
+        let ptr = self.nodes.as_ptr();
+
         for i in 0..bytes.len() {
             let b = unsafe { *bytes.get_unchecked(i) };
-            let bit_idx = unsafe { *CHAR_TO_BIT.get_unchecked(b as usize) };
-            if bit_idx < 0 {
+            let mask_bit = unsafe { *CHAR_TO_MASK.get_unchecked(b as usize) };
+            if mask_bit == 0 {
                 return false;
             }
-            let bit_idx = bit_idx as usize;
 
-            let mask = unsafe { *self.masks.get_unchecked(current_idx) };
-            if (mask & (1 << bit_idx)) == 0 {
+            let node_ptr = unsafe { ptr.add(current_idx << 5) };
+            let mask = unsafe { *node_ptr };
+            if (mask & mask_bit) == 0 {
                 return false;
             }
-            current_idx = unsafe {
-                *self
-                    .indices
-                    .get_unchecked(current_idx * ALPHABET_SIZE + bit_idx) as usize
-            };
+            let bit_idx = mask_bit.trailing_zeros() as usize;
+            current_idx = unsafe { *node_ptr.add(1 + bit_idx) as usize };
         }
 
-        unsafe { (*self.masks.get_unchecked(current_idx) & (1 << 31)) != 0 }
+        unsafe { (*ptr.add(current_idx << 5) & (1 << 31)) != 0 }
     }
 
     pub fn print(&self) {
@@ -119,7 +114,8 @@ impl Trie {
     }
 
     fn debug_print(&self, node_idx: usize, indent: usize) {
-        let mask = self.masks[node_idx];
+        let node_offset = node_idx << 5;
+        let mask = unsafe { *self.nodes.get_unchecked(node_offset) };
         let padding = "  ".repeat(indent);
 
         if node_idx == 0 {
@@ -133,45 +129,35 @@ impl Trie {
             );
         }
 
-        // Since we are using a bitmask and an index array, we iterate
-        // through the alphabet and check the mask.
         for i in 0..26 {
             if (mask & (1 << i)) != 0 {
-                let child_idx = self.indices[node_idx * ALPHABET_SIZE + i] as usize;
+                let child_idx = unsafe { *self.nodes.get_unchecked(node_offset + 1 + i) as usize };
                 self.debug_print(child_idx, indent + 1);
             }
         }
     }
 
     pub fn words_with_prefix(&self, prefix: &str) -> Vec<String> {
-        let mut current_idx = 0; // Start at root
+        let mut current_idx = 0;
         let bytes = prefix.as_bytes();
 
-        // 1. Navigate to the end of the prefix
         for &b in bytes {
-            let bit_idx = unsafe { *CHAR_TO_BIT.get_unchecked(b as usize) };
-            if bit_idx < 0 {
+            let mask_bit = unsafe { *CHAR_TO_MASK.get_unchecked(b as usize) };
+            if mask_bit == 0 {
                 return Vec::new();
             }
-            let bit_idx = bit_idx as usize;
+            let bit_idx = mask_bit.trailing_zeros() as usize;
 
-            let mask = unsafe { *self.masks.get_unchecked(current_idx) };
-            // Use the bitmask to check if the path exists
-            if (mask & (1 << bit_idx)) == 0 {
-                return Vec::new(); // Prefix not found
+            let node_offset = current_idx << 5;
+            let mask = unsafe { *self.nodes.get_unchecked(node_offset) };
+            if (mask & mask_bit) == 0 {
+                return Vec::new();
             }
-            current_idx = unsafe {
-                *self
-                    .indices
-                    .get_unchecked(current_idx * ALPHABET_SIZE + bit_idx) as usize
-            };
+            current_idx = unsafe { *self.nodes.get_unchecked(node_offset + 1 + bit_idx) as usize };
         }
 
-        // 2. Collect all words starting from this node
         let mut results = Vec::new();
-        // Pre-allocate the buffer with the prefix to avoid mid-search reallocations
         let mut buffer = prefix.to_ascii_lowercase().into_bytes();
-
         self.collect_words_from_node(current_idx, &mut buffer, &mut results);
         results
     }
@@ -182,24 +168,19 @@ impl Trie {
         buffer: &mut Vec<u8>,
         results: &mut Vec<String>,
     ) {
-        let mask = unsafe { *self.masks.get_unchecked(node_idx) };
+        let node_offset = node_idx << 5;
+        let mask = unsafe { *self.nodes.get_unchecked(node_offset) };
 
-        // If this node marks the end of a word, save the current buffer
         if (mask & (1 << 31)) != 0 {
             results.push(unsafe { std::str::from_utf8_unchecked(buffer) }.to_owned());
         }
 
-        // Iterate through all possible children (a-z)
         for i in 0..26 {
-            // Only recurse if the bitmask says a child exists
             if (mask & (1 << i)) != 0 {
-                let child_idx =
-                    unsafe { *self.indices.get_unchecked(node_idx * ALPHABET_SIZE + i) as usize };
-
-                // Push the character for this branch
+                let child_idx = unsafe { *self.nodes.get_unchecked(node_offset + 1 + i) as usize };
                 buffer.push(b'a' + i as u8);
                 self.collect_words_from_node(child_idx, buffer, results);
-                buffer.pop(); // Backtrack for the next branch
+                buffer.pop();
             }
         }
     }

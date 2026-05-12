@@ -7,5 +7,4 @@ edition = "2024"
 crate-type = ["cdylib"]
 
 [dependencies]
-bit-vec = "0.9.1"
 gxhash = "3.5.0"

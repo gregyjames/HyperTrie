@@ -32,7 +32,7 @@ internal unsafe ref struct Utf8String : IDisposable
         {
             int byteCount = Encoding.UTF8.GetByteCount(str);
             Length = byteCount;
-            int requiredSize = byteCount + 1; // Keep +1 for compatibility with tests and safety
+            int requiredSize = byteCount + 1;
 
             if (requiredSize <= STACK_THRESHOLD)
             {
