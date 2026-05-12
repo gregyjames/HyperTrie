@@ -61,12 +61,20 @@ impl Trie {
 
                 let mask_ref = unsafe { self.masks.get_unchecked_mut(current_idx) };
                 *mask_ref |= 1 << bit_idx;
-                let index_ref = unsafe { self.indices.get_unchecked_mut(current_idx * ALPHABET_SIZE + bit_idx) };
+                let index_ref = unsafe {
+                    self.indices
+                        .get_unchecked_mut(current_idx * ALPHABET_SIZE + bit_idx)
+                };
                 *index_ref = new_node_idx;
 
                 current_idx = new_node_idx as usize;
             } else {
-                current_idx = unsafe { *self.indices.get_unchecked(current_idx * ALPHABET_SIZE + bit_idx) as usize };
+                current_idx = unsafe {
+                    *self
+                        .indices
+                        .get_unchecked(current_idx * ALPHABET_SIZE + bit_idx)
+                        as usize
+                };
             }
         }
 
@@ -95,7 +103,11 @@ impl Trie {
             if (mask & (1 << bit_idx)) == 0 {
                 return false;
             }
-            current_idx = unsafe { *self.indices.get_unchecked(current_idx * ALPHABET_SIZE + bit_idx) as usize };
+            current_idx = unsafe {
+                *self
+                    .indices
+                    .get_unchecked(current_idx * ALPHABET_SIZE + bit_idx) as usize
+            };
         }
 
         unsafe { (*self.masks.get_unchecked(current_idx) & (1 << 31)) != 0 }
@@ -115,7 +127,9 @@ impl Trie {
         } else {
             println!(
                 "{}Node index: {} (end_of_word: {})",
-                padding, node_idx, (mask & (1 << 31)) != 0
+                padding,
+                node_idx,
+                (mask & (1 << 31)) != 0
             );
         }
 
@@ -146,7 +160,11 @@ impl Trie {
             if (mask & (1 << bit_idx)) == 0 {
                 return Vec::new(); // Prefix not found
             }
-            current_idx = unsafe { *self.indices.get_unchecked(current_idx * ALPHABET_SIZE + bit_idx) as usize };
+            current_idx = unsafe {
+                *self
+                    .indices
+                    .get_unchecked(current_idx * ALPHABET_SIZE + bit_idx) as usize
+            };
         }
 
         // 2. Collect all words starting from this node
@@ -175,7 +193,8 @@ impl Trie {
         for i in 0..26 {
             // Only recurse if the bitmask says a child exists
             if (mask & (1 << i)) != 0 {
-                let child_idx = unsafe { *self.indices.get_unchecked(node_idx * ALPHABET_SIZE + i) as usize };
+                let child_idx =
+                    unsafe { *self.indices.get_unchecked(node_idx * ALPHABET_SIZE + i) as usize };
 
                 // Push the character for this branch
                 buffer.push(b'a' + i as u8);
