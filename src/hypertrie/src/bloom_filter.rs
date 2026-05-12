@@ -1,41 +1,54 @@
-use bit_vec::BitVec;
 use gxhash::GxHasher;
 use std::hash::Hasher;
 
 const SEED: i64 = 1846279233212321312;
 
 pub struct BloomFilter {
-    bit_array: BitVec,
+    bit_array: Vec<u64>,
     size: usize,
     num_hashes: usize,
 }
 
 impl BloomFilter {
     pub fn new(size: usize, num_hashes: usize) -> Self {
+        let u64_count = (size + 63) / 64;
         BloomFilter {
-            bit_array: BitVec::from_elem(size, false),
+            bit_array: vec![0; u64_count],
             size,
             num_hashes,
         }
     }
 
     pub fn insert(&mut self, item: &str) {
-        let base_hash = self.get_base_hash(item);
+        let h1 = self.get_base_hash(item);
+        let h2 = h1.wrapping_mul(0x9e3779b97f4a7c15);
+        let size_mask = self.size - 1;
         for i in 0..self.num_hashes {
-            let final_hash = self.derive_hash(base_hash, i);
-            let index = final_hash & (self.size - 1);
-            self.bit_array.set(index, true);
+            let final_hash = h1.wrapping_add((i as u64).wrapping_mul(h2));
+            let index = (final_hash as usize) & size_mask;
+
+            let word_idx = index >> 6;
+            let bit_idx = index & 63;
+            unsafe {
+                *self.bit_array.get_unchecked_mut(word_idx) |= 1 << bit_idx;
+            }
         }
     }
 
     pub fn contains(&self, item: &str) -> bool {
-        let base_hash = self.get_base_hash(item);
+        let h1 = self.get_base_hash(item);
+        let h2 = h1.wrapping_mul(0x9e3779b97f4a7c15);
+        let size_mask = self.size - 1;
         for i in 0..self.num_hashes {
-            let final_hash = self.derive_hash(base_hash, i);
-            let index = final_hash & (self.size - 1);
+            let final_hash = h1.wrapping_add((i as u64).wrapping_mul(h2));
+            let index = (final_hash as usize) & size_mask;
 
-            if !self.bit_array.get(index).unwrap_or(false) {
-                return false;
+            let word_idx = index >> 6;
+            let bit_idx = index & 63;
+            unsafe {
+                if (*self.bit_array.get_unchecked(word_idx) & (1 << bit_idx)) == 0 {
+                    return false;
+                }
             }
         }
         true // Maybe in the set (false positives possible)
@@ -46,16 +59,6 @@ impl BloomFilter {
         let mut hasher = GxHasher::with_seed(SEED);
         hasher.write(item.as_bytes());
         hasher.finish()
-    }
-
-    /// Derive subsequent hashes from the base hash + index
-    /// This is significantly faster than hashing the string again
-    #[inline(always)]
-    fn derive_hash(&self, base_hash: u64, index: usize) -> usize {
-        // Enhanced Double Hashing: hash_i = hash1 + i * hash2
-        // We use the base_hash as hash1, and a secondary hash of base_hash as hash2
-        let hash2 = base_hash.wrapping_mul(0x9e3779b97f4a7c15);
-        base_hash.wrapping_add((index as u64).wrapping_mul(hash2)) as usize
     }
 }
 
@@ -185,10 +188,11 @@ mod tests {
     /// Helper to collect hashes for testing since we removed hash_item from the API
     fn get_hashes(bf: &BloomFilter, item: &str) -> Vec<usize> {
         let mut hashes = Vec::new();
-        let base_hash = bf.get_base_hash(item);
+        let h1 = bf.get_base_hash(item);
+        let h2 = h1.wrapping_mul(0x9e3779b97f4a7c15);
         for i in 0..bf.num_hashes {
-            let final_hash = bf.derive_hash(base_hash, i);
-            hashes.push(final_hash % bf.size);
+            let final_hash = h1.wrapping_add((i as u64).wrapping_mul(h2));
+            hashes.push((final_hash as usize) % bf.size);
         }
         hashes
     }

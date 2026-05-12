@@ -34,15 +34,14 @@ pub unsafe extern "C" fn trie_free(trie: *mut Trie) {
 /// This function is unsafe because it dereferences raw pointers.
 /// The caller must ensure that both `trie` and `word` are valid pointers.
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn trie_insert(trie: *mut Trie, word: *const c_char) {
+pub unsafe extern "C" fn trie_insert(trie: *mut Trie, word: *const u8, len: usize) {
     if trie.is_null() || word.is_null() {
         return;
     }
     unsafe {
-        let c_str = CStr::from_ptr(word);
-        if let Ok(word_str) = c_str.to_str() {
-            (*trie).insert(word_str);
-        }
+        let word_slice = slice::from_raw_parts(word, len);
+        let word_str = std::str::from_utf8_unchecked(word_slice);
+        (*trie).insert(word_str);
     }
 }
 
@@ -51,16 +50,14 @@ pub unsafe extern "C" fn trie_insert(trie: *mut Trie, word: *const c_char) {
 /// This function is unsafe because it dereferences raw pointers.
 /// The caller must ensure that both `trie` and `word` are valid pointers.
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn trie_contains(trie: *const Trie, word: *const c_char) -> bool {
+pub unsafe extern "C" fn trie_contains(trie: *const Trie, word: *const u8, len: usize) -> bool {
     if trie.is_null() || word.is_null() {
         return false;
     }
     unsafe {
-        let c_str = CStr::from_ptr(word);
-        match c_str.to_str() {
-            Ok(word_str) => (*trie).contains(word_str),
-            Err(_) => false,
-        }
+        let word_slice = slice::from_raw_parts(word, len);
+        let word_str = std::str::from_utf8_unchecked(word_slice);
+        (*trie).contains(word_str)
     }
 }
 
@@ -198,10 +195,10 @@ mod tests {
     #[test]
     fn test_insert_and_contains() {
         let t = make_trie();
-        let word = cstr("hello");
+        let word = "hello";
         unsafe {
-            trie_insert(t, word.as_ptr());
-            assert!(trie_contains(t, word.as_ptr()));
+            trie_insert(t, word.as_ptr(), word.len());
+            assert!(trie_contains(t, word.as_ptr(), word.len()));
         }
         unsafe { trie_free(t) };
     }
@@ -209,37 +206,37 @@ mod tests {
     #[test]
     fn test_contains_missing_word_returns_false() {
         let t = make_trie();
-        let word = cstr("ghost");
+        let word = "ghost";
         unsafe {
-            assert!(!trie_contains(t, word.as_ptr()));
+            assert!(!trie_contains(t, word.as_ptr(), word.len()));
         }
         unsafe { trie_free(t) };
     }
 
     #[test]
     fn test_insert_null_trie_is_safe() {
-        let word = cstr("hello");
-        unsafe { trie_insert(ptr::null_mut(), word.as_ptr()) };
+        let word = "hello";
+        unsafe { trie_insert(ptr::null_mut(), word.as_ptr(), word.len()) };
     }
 
     #[test]
     fn test_insert_null_word_is_safe() {
         let t = make_trie();
-        unsafe { trie_insert(t, ptr::null()) };
+        unsafe { trie_insert(t, ptr::null(), 0) };
         unsafe { trie_free(t) };
     }
 
     #[test]
     fn test_contains_null_trie_returns_false() {
-        let word = cstr("hello");
-        let result = unsafe { trie_contains(ptr::null(), word.as_ptr()) };
+        let word = "hello";
+        let result = unsafe { trie_contains(ptr::null(), word.as_ptr(), word.len()) };
         assert!(!result);
     }
 
     #[test]
     fn test_contains_null_word_returns_false() {
         let t = make_trie();
-        let result = unsafe { trie_contains(t, ptr::null()) };
+        let result = unsafe { trie_contains(t, ptr::null(), 0) };
         assert!(!result);
         unsafe { trie_free(t) };
     }
@@ -247,12 +244,12 @@ mod tests {
     #[test]
     fn test_insert_empty_string() {
         let t = make_trie();
-        let word = cstr("");
+        let word = "";
         unsafe {
-            trie_insert(t, word.as_ptr());
+            trie_insert(t, word.as_ptr(), word.len());
             // whether empty string is "found" is implementation-defined;
             // the important thing is it doesn't crash
-            let _ = trie_contains(t, word.as_ptr());
+            let _ = trie_contains(t, word.as_ptr(), word.len());
         }
         unsafe { trie_free(t) };
     }
@@ -267,7 +264,8 @@ mod tests {
         unsafe {
             trie_bulk_insert(t, ptrs.as_ptr(), ptrs.len());
             for w in &words {
-                assert!(trie_contains(t, w.as_ptr()));
+                let w_str = w.to_str().unwrap();
+                assert!(trie_contains(t, w_str.as_ptr(), w_str.len()));
             }
         }
         unsafe { trie_free(t) };
@@ -337,9 +335,9 @@ mod tests {
     #[test]
     fn test_words_with_prefix_no_match_returns_null() {
         let t = make_trie();
-        let word = cstr("hello");
+        let word = "hello";
         unsafe {
-            trie_insert(t, word.as_ptr());
+            trie_insert(t, word.as_ptr(), word.len());
 
             let prefix = cstr("xyz");
             let mut out_len: usize = 0;
@@ -387,9 +385,9 @@ mod tests {
     #[test]
     fn test_free_words_zero_len_is_safe() {
         let t = make_trie();
-        let word = cstr("hello");
+        let word = "hello";
         unsafe {
-            trie_insert(t, word.as_ptr());
+            trie_insert(t, word.as_ptr(), word.len());
             let prefix = cstr("hel");
             let mut out_len: usize = 0;
             let result = trie_words_with_prefix(t, prefix.as_ptr(), &mut out_len);
@@ -409,9 +407,9 @@ mod tests {
     #[test]
     fn test_debug_print_does_not_crash() {
         let t = make_trie();
-        let word = cstr("test");
+        let word = "test";
         unsafe {
-            trie_insert(t, word.as_ptr());
+            trie_insert(t, word.as_ptr(), word.len());
             trie_debug_print(t);
         }
         unsafe { trie_free(t) };

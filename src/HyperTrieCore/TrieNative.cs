@@ -21,11 +21,11 @@ public sealed class TrieNative(int size, int numHashes = 5) : IDisposable
     private static extern void trie_free(IntPtr trie);
 
     [DllImport(DLL_NAME, CallingConvention = CallingConvention.Cdecl)]
-    private static extern void trie_insert(IntPtr trie, IntPtr word);
+    private static extern void trie_insert(IntPtr trie, IntPtr word, UIntPtr len);
 
     [DllImport(DLL_NAME, CallingConvention = CallingConvention.Cdecl)]
     [return: MarshalAs(UnmanagedType.Bool)]
-    private static extern bool trie_contains(IntPtr trie, IntPtr word);
+    private static extern bool trie_contains(IntPtr trie, IntPtr word, UIntPtr len);
 
     [DllImport(DLL_NAME, CallingConvention = CallingConvention.Cdecl)]
     private static extern void trie_debug_print(IntPtr trie);
@@ -50,7 +50,7 @@ public sealed class TrieNative(int size, int numHashes = 5) : IDisposable
     public unsafe void Insert(string word)
     {
         using var wordPtr = new Utf8String(word);
-        trie_insert(_handle, wordPtr.Pointer);
+        trie_insert(_handle, wordPtr.Pointer, (UIntPtr)wordPtr.Length);
     }
 
     /// <summary>
@@ -108,7 +108,7 @@ public sealed class TrieNative(int size, int numHashes = 5) : IDisposable
     public unsafe bool Contains(string word)
     {
         using var testWord = new Utf8String(word);
-        return trie_contains(_handle, testWord.Pointer);
+        return trie_contains(_handle, testWord.Pointer, (UIntPtr)testWord.Length);
     }
 
     /// <summary>
