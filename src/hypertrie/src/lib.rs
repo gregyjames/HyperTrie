@@ -351,8 +351,9 @@ mod tests {
     fn test_words_with_prefix_null_trie_returns_null() {
         let prefix = "app";
         let mut out_len: usize = 0;
-        let result =
-            unsafe { trie_words_with_prefix(ptr::null(), prefix.as_ptr(), prefix.len(), &mut out_len) };
+        let result = unsafe {
+            trie_words_with_prefix(ptr::null(), prefix.as_ptr(), prefix.len(), &mut out_len)
+        };
         assert!(result.is_null());
     }
 
@@ -369,7 +370,8 @@ mod tests {
     fn test_words_with_prefix_null_out_len_returns_null() {
         let t = make_trie();
         let prefix = "app";
-        let result = unsafe { trie_words_with_prefix(t, prefix.as_ptr(), prefix.len(), ptr::null_mut()) };
+        let result =
+            unsafe { trie_words_with_prefix(t, prefix.as_ptr(), prefix.len(), ptr::null_mut()) };
         assert!(result.is_null());
         unsafe { trie_free(t) };
     }

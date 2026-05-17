@@ -61,7 +61,9 @@ impl Trie {
 
         for &b in word {
             let bit_idx = CHAR_TO_BIT[b as usize];
-            if bit_idx == 255 { continue; }
+            if bit_idx == 255 {
+                continue;
+            }
             let bit_idx = bit_idx as usize;
 
             let next_idx = self.nodes[current_idx].children_indices[bit_idx];
@@ -90,7 +92,8 @@ impl Trie {
             self.bloom_filter.insert(&stack_buf[..normalized_len]);
         } else {
             // Only allocate if word is long
-            let normalized: Vec<u8> = word.iter()
+            let normalized: Vec<u8> = word
+                .iter()
                 .map(|&b| CHAR_TO_BIT[b as usize])
                 .filter(|&idx| idx != 255)
                 .map(|idx| b'a' + idx)
@@ -106,7 +109,9 @@ impl Trie {
         if word.len() <= 64 {
             for &b in word {
                 let bit_idx = CHAR_TO_BIT[b as usize];
-                if bit_idx == 255 { return false; }
+                if bit_idx == 255 {
+                    return false;
+                }
                 stack_buf[normalized_len] = b'a' + bit_idx;
                 normalized_len += 1;
             }
@@ -126,13 +131,16 @@ impl Trie {
             }
             unsafe { self.nodes.get_unchecked(current_idx) }.end_of_word
         } else {
-            let normalized: Vec<u8> = word.iter()
+            let normalized: Vec<u8> = word
+                .iter()
                 .map(|&b| CHAR_TO_BIT[b as usize])
                 .filter(|&idx| idx != 255)
                 .map(|idx| b'a' + idx)
                 .collect();
 
-            if normalized.len() != word.len() { return false; } // Assuming non-ASCII/invalid means no match
+            if normalized.len() != word.len() {
+                return false;
+            } // Assuming non-ASCII/invalid means no match
 
             if !self.bloom_filter.contains(&normalized) {
                 return false;
@@ -187,13 +195,16 @@ impl Trie {
         let mut buffer = if can_use_stack {
             for &b in prefix {
                 let bit_idx = CHAR_TO_BIT[b as usize];
-                if bit_idx == 255 { return Vec::new(); }
+                if bit_idx == 255 {
+                    return Vec::new();
+                }
                 stack_buf[normalized_len] = b'a' + bit_idx;
                 normalized_len += 1;
             }
             stack_buf[..normalized_len].to_vec()
         } else {
-             prefix.iter()
+            prefix
+                .iter()
                 .map(|&b| CHAR_TO_BIT[b as usize])
                 .filter(|&idx| idx != 255)
                 .map(|idx| b'a' + idx)
