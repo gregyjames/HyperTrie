@@ -1,4 +1,4 @@
-use std::ffi::{CStr, CString};
+use std::ffi::CString;
 use std::os::raw::c_char;
 use std::ptr;
 use std::slice;
@@ -115,8 +115,8 @@ pub unsafe extern "C" fn trie_words_with_prefix(
 
 /// # Safety
 ///
-/// This function is unsafe because it dereferences a raw pointer.
-/// The caller must ensure that the `trie` pointer is valid.
+/// This function is unsafe because it dereferences raw pointers.
+/// The caller must ensure that `words` is a valid pointer to an array of `len` elements.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn trie_free_words(words: *mut *mut c_char, len: usize) {
     if words.is_null() || len == 0 {
@@ -165,15 +165,10 @@ pub unsafe extern "C" fn trie_bulk_insert(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::ffi::CString;
     use std::ptr;
 
     fn make_trie() -> *mut Trie {
         unsafe { trie_new(1024, 3) }
-    }
-
-    fn cstr(s: &str) -> CString {
-        CString::new(s).unwrap()
     }
 
     // --- trie_new / trie_free ---
@@ -315,11 +310,12 @@ mod tests {
             assert_eq!(out_len, 3);
 
             // collect and verify all expected words are present
-            let slice = slice::from_raw_parts(result, out_len);
-            let found: Vec<String> = slice
-                .iter()
-                .map(|&p| CStr::from_ptr(p).to_str().unwrap().to_owned())
-                .collect();
+            let slice = std::slice::from_raw_parts(result, out_len);
+            let mut found = Vec::new();
+            for &p in slice {
+                let s = std::ffi::CStr::from_ptr(p).to_str().unwrap().to_owned();
+                found.push(s);
+            }
 
             assert!(found.contains(&"apple".to_string()));
             assert!(found.contains(&"application".to_string()));
