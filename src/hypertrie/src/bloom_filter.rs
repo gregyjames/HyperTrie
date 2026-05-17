@@ -19,7 +19,7 @@ impl BloomFilter {
         }
     }
 
-    pub fn insert(&mut self, item: &str) {
+    pub fn insert(&mut self, item: &[u8]) {
         let base_hash = self.get_base_hash(item);
         for i in 0..self.num_hashes {
             let final_hash = self.derive_hash(base_hash, i);
@@ -28,7 +28,7 @@ impl BloomFilter {
         }
     }
 
-    pub fn contains(&self, item: &str) -> bool {
+    pub fn contains(&self, item: &[u8]) -> bool {
         let base_hash = self.get_base_hash(item);
         for i in 0..self.num_hashes {
             let final_hash = self.derive_hash(base_hash, i);
@@ -42,9 +42,9 @@ impl BloomFilter {
     }
 
     #[inline(always)]
-    fn get_base_hash(&self, item: &str) -> u64 {
+    fn get_base_hash(&self, item: &[u8]) -> u64 {
         let mut hasher = GxHasher::with_seed(SEED);
-        hasher.write(item.as_bytes());
+        hasher.write(item);
         hasher.finish()
     }
 
@@ -72,16 +72,16 @@ mod tests {
     #[test]
     fn test_new_contains_nothing() {
         let bf = make_filter(1024, 3);
-        assert!(!bf.contains("hello"));
-        assert!(!bf.contains("world"));
+        assert!(!bf.contains(b"hello"));
+        assert!(!bf.contains(b"world"));
     }
 
     #[test]
     fn test_new_size_one() {
         // degenerate but shouldn't panic
         let mut bf = make_filter(1, 1);
-        bf.insert("x");
-        assert!(bf.contains("x"));
+        bf.insert(b"x");
+        assert!(bf.contains(b"x"));
     }
 
     // --- insert / contains ---
@@ -89,19 +89,19 @@ mod tests {
     #[test]
     fn test_inserted_item_is_found() {
         let mut bf = make_filter(1024, 3);
-        bf.insert("hello");
-        assert!(bf.contains("hello"));
+        bf.insert(b"hello");
+        assert!(bf.contains(b"hello"));
     }
 
     #[test]
     fn test_multiple_insertions() {
         let mut bf = make_filter(1024, 3);
-        let words = ["apple", "banana", "cherry", "date", "elderberry"];
+        let words: [&[u8]; 5] = [b"apple", b"banana", b"cherry", b"date", b"elderberry"];
         for w in &words {
-            bf.insert(w);
+            bf.insert(*w);
         }
         for w in &words {
-            assert!(bf.contains(w), "expected '{w}' to be found");
+            assert!(bf.contains(*w), "expected '{:?}' to be found", w);
         }
     }
 
@@ -110,58 +110,58 @@ mod tests {
         // With a large filter and few items, false positives should not occur
         // for these specific values — if this ever flakes, increase size.
         let mut bf = make_filter(8192, 4);
-        bf.insert("present");
-        assert!(!bf.contains("absent"));
-        assert!(!bf.contains("also_absent"));
+        bf.insert(b"present");
+        assert!(!bf.contains(b"absent"));
+        assert!(!bf.contains(b"also_absent"));
     }
 
     #[test]
     fn test_insert_empty_string() {
         let mut bf = make_filter(1024, 3);
-        bf.insert("");
-        assert!(bf.contains(""));
+        bf.insert(b"");
+        assert!(bf.contains(b""));
     }
 
     #[test]
     fn test_empty_string_not_present_by_default() {
         let bf = make_filter(1024, 3);
-        assert!(!bf.contains(""));
+        assert!(!bf.contains(b""));
     }
 
     #[test]
     fn test_insert_is_idempotent() {
         let mut bf = make_filter(1024, 3);
-        bf.insert("repeat");
-        bf.insert("repeat");
-        assert!(bf.contains("repeat"));
+        bf.insert(b"repeat");
+        bf.insert(b"repeat");
+        assert!(bf.contains(b"repeat"));
     }
 
     #[test]
     fn test_unicode_item() {
         let mut bf = make_filter(1024, 3);
-        bf.insert("héllo");
-        bf.insert("日本語");
-        assert!(bf.contains("héllo"));
-        assert!(bf.contains("日本語"));
-        assert!(!bf.contains("hello")); // ASCII variant is distinct
+        bf.insert("héllo".as_bytes());
+        bf.insert("日本語".as_bytes());
+        assert!(bf.contains("héllo".as_bytes()));
+        assert!(bf.contains("日本語".as_bytes()));
+        assert!(!bf.contains(b"hello")); // ASCII variant is distinct
     }
 
     #[test]
     fn test_case_sensitive() {
         let mut bf = make_filter(1024, 3);
-        bf.insert("Hello");
-        assert!(bf.contains("Hello"));
-        assert!(!bf.contains("hello"));
-        assert!(!bf.contains("HELLO"));
+        bf.insert(b"Hello");
+        assert!(bf.contains(b"Hello"));
+        assert!(!bf.contains(b"hello"));
+        assert!(!bf.contains(b"HELLO"));
     }
 
     #[test]
     fn test_similar_strings_are_distinct() {
         let mut bf = make_filter(8192, 4);
-        bf.insert("abc");
-        assert!(!bf.contains("ab"));
-        assert!(!bf.contains("abcd"));
-        assert!(!bf.contains("ABC"));
+        bf.insert(b"abc");
+        assert!(!bf.contains(b"ab"));
+        assert!(!bf.contains(b"abcd"));
+        assert!(!bf.contains(b"ABC"));
     }
 
     // --- num_hashes boundary ---
@@ -169,21 +169,21 @@ mod tests {
     #[test]
     fn test_single_hash() {
         let mut bf = make_filter(1024, 1);
-        bf.insert("one_hash");
-        assert!(bf.contains("one_hash"));
-        assert!(!bf.contains("different"));
+        bf.insert(b"one_hash");
+        assert!(bf.contains(b"one_hash"));
+        assert!(!bf.contains(b"different"));
     }
 
     #[test]
     fn test_many_hashes() {
         let mut bf = make_filter(4096, 10);
-        bf.insert("many_hashes");
-        assert!(bf.contains("many_hashes"));
+        bf.insert(b"many_hashes");
+        assert!(bf.contains(b"many_hashes"));
     }
 
     // --- hash_item determinism ---
     /// Helper to collect hashes for testing since we removed hash_item from the API
-    fn get_hashes(bf: &BloomFilter, item: &str) -> Vec<usize> {
+    fn get_hashes(bf: &BloomFilter, item: &[u8]) -> Vec<usize> {
         let mut hashes = Vec::new();
         let base_hash = bf.get_base_hash(item);
         for i in 0..bf.num_hashes {
@@ -196,8 +196,8 @@ mod tests {
     #[test]
     fn test_hashing_is_deterministic() {
         let bf = make_filter(1024, 3);
-        let h1 = get_hashes(&bf, "stable");
-        let h2 = get_hashes(&bf, "stable");
+        let h1 = get_hashes(&bf, b"stable");
+        let h2 = get_hashes(&bf, b"stable");
         assert_eq!(h1, h2);
     }
 
@@ -206,7 +206,7 @@ mod tests {
         // Each of the num_hashes slots should (almost certainly) differ for a
         // non-degenerate input, confirming the per-index salt is applied.
         let bf = make_filter(1024, 4);
-        let hashes = get_hashes(&bf, "salt_test");
+        let hashes = get_hashes(&bf, b"salt_test");
         // Not all hashes should be equal — if they were, the filter would
         // only ever set/check one bit position regardless of num_hashes.
         let unique: std::collections::HashSet<usize> = hashes.iter().copied().collect();
@@ -216,7 +216,7 @@ mod tests {
     #[test]
     fn test_hash_count_matches_num_hashes() {
         let bf = make_filter(1024, 5);
-        let hashes = get_hashes(&bf, "count");
+        let hashes = get_hashes(&bf, b"count");
         assert_eq!(hashes.len(), 5, "Should generate exactly num_hashes values");
     }
 
@@ -228,11 +228,11 @@ mod tests {
         // that were never inserted. FP rate should be well under 1%.
         let mut bf = make_filter(16384, 4);
         for i in 0..100u32 {
-            bf.insert(&format!("inserted_{i}"));
+            bf.insert(format!("inserted_{i}").as_bytes());
         }
         let mut false_positives = 0;
         for i in 0..1000u32 {
-            if bf.contains(&format!("probe_{i}")) {
+            if bf.contains(format!("probe_{i}").as_bytes()) {
                 false_positives += 1;
             }
         }

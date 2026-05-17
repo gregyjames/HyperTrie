@@ -14,11 +14,13 @@ internal unsafe ref struct Utf8String : IDisposable
     private byte* _allocatedPtr;
     private bool _isHeapAllocated;
     public IntPtr Pointer {get; private set;}
+    public int Length {get; private set;}
 
     public Utf8String(string str)
     {
         _allocatedPtr = null;
         _isHeapAllocated = false;
+        Length = 0;
 
         if (string.IsNullOrEmpty(str))
         {
@@ -28,25 +30,30 @@ internal unsafe ref struct Utf8String : IDisposable
 
         fixed (char* pStr = str)
         {
-            int byteCount = Encoding.UTF8.GetByteCount(str);
-            int requiredSize = byteCount + 1; // +1 for null terminator
+            int maxByteCount = Encoding.UTF8.GetMaxByteCount(str.Length);
 
-            if (requiredSize <= STACK_THRESHOLD)
+            if (maxByteCount < STACK_THRESHOLD)
             {
                 fixed (byte* pBuffer = _fixedBuffer)
                 {
-                    Encoding.UTF8.GetBytes(pStr, str.Length, pBuffer, byteCount);
-                    pBuffer[byteCount] = 0;
+                    int bytesWritten = Encoding.UTF8.GetBytes(pStr, str.Length, pBuffer, STACK_THRESHOLD);
+                    pBuffer[bytesWritten] = 0;
                     Pointer = (nint)pBuffer;
+                    Length = bytesWritten;
                 }
             }
             else
             {
-                _allocatedPtr = (byte*)Marshal.AllocHGlobal(requiredSize);
+                // We don't want to over-allocate significantly with GetMaxByteCount if it's large,
+                // but for smallish strings it's fine. For larger ones, maybe we should stick to two-pass or just allocate.
+                // Actually, for consistency and avoiding double pass:
+                int actualByteCount = Encoding.UTF8.GetByteCount(str);
+                _allocatedPtr = (byte*)Marshal.AllocHGlobal(actualByteCount + 1);
                 _isHeapAllocated = true;
-                Encoding.UTF8.GetBytes(pStr, str.Length, _allocatedPtr, byteCount);
-                _allocatedPtr[byteCount] = 0;
+                Encoding.UTF8.GetBytes(pStr, str.Length, _allocatedPtr, actualByteCount);
+                _allocatedPtr[actualByteCount] = 0;
                 Pointer = (nint)_allocatedPtr;
+                Length = actualByteCount;
             }
         }
     }
@@ -61,5 +68,6 @@ internal unsafe ref struct Utf8String : IDisposable
         }
 
         Pointer = IntPtr.Zero;
+        Length = 0;
     }
 }

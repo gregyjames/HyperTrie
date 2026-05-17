@@ -2,6 +2,19 @@ use crate::bloom_filter::BloomFilter;
 
 const ALPHABET_SIZE: usize = 26;
 
+/// Lookup table to map ASCII characters to their 0-255 bit indices.
+/// 'a'-'z' and 'A'-'Z' map to 0-255. All others map to 255 (invalid).
+static CHAR_TO_BIT: [u8; 256] = {
+    let mut table = [255u8; 256];
+    let mut i = 0u8;
+    while i < 26 {
+        table[(b'a' + i) as usize] = i;
+        table[(b'A' + i) as usize] = i;
+        i += 1;
+    }
+    table
+};
+
 pub struct Node {
     pub letter: u8,
     pub children_mask: u32,
@@ -40,53 +53,101 @@ impl Trie {
         }
     }
 
-    pub fn insert(&mut self, word: &str) {
+    pub fn insert(&mut self, word: &[u8]) {
         let mut current_idx = 0;
-        let bytes = word.as_bytes();
+        let mut stack_buf = [0u8; 64];
+        let mut normalized_len = 0;
+        let can_use_stack = word.len() <= 64;
 
-        for &b in bytes {
-            let char_val = b.to_ascii_lowercase();
-            let bit_idx = (char_val - b'a') as usize;
+        for &b in word {
+            let bit_idx = CHAR_TO_BIT[b as usize];
+            if bit_idx == 255 { continue; }
+            let bit_idx = bit_idx as usize;
 
-            // Check if child exists using bitmask
-            if (self.nodes[current_idx].children_mask & (1 << bit_idx)) == 0 {
+            let next_idx = self.nodes[current_idx].children_indices[bit_idx];
+            if next_idx == 0 {
                 let new_node_idx = self.nodes.len() as u32;
-                self.nodes.push(Node::new(char_val));
+                let normalized_char = b'a' + bit_idx as u8;
+                self.nodes.push(Node::new(normalized_char));
 
-                // Update parent
                 let node = &mut self.nodes[current_idx];
                 node.children_mask |= 1 << bit_idx;
                 node.children_indices[bit_idx] = new_node_idx;
-
                 current_idx = new_node_idx as usize;
             } else {
-                current_idx = self.nodes[current_idx].children_indices[bit_idx] as usize;
+                current_idx = next_idx as usize;
+            }
+
+            if can_use_stack {
+                stack_buf[normalized_len] = b'a' + bit_idx as u8;
+                normalized_len += 1;
             }
         }
 
         self.nodes[current_idx].end_of_word = true;
-        self.bloom_filter.insert(word);
+
+        if can_use_stack {
+            self.bloom_filter.insert(&stack_buf[..normalized_len]);
+        } else {
+            // Only allocate if word is long
+            let normalized: Vec<u8> = word.iter()
+                .map(|&b| CHAR_TO_BIT[b as usize])
+                .filter(|&idx| idx != 255)
+                .map(|idx| b'a' + idx)
+                .collect();
+            self.bloom_filter.insert(&normalized);
+        }
     }
 
-    pub fn contains(&self, word: &str) -> bool {
-        // Bloom Filter is usually faster than a full Trie walk for non-members
-        if !self.bloom_filter.contains(word) {
-            return false;
-        }
+    pub fn contains(&self, word: &[u8]) -> bool {
+        let mut stack_buf = [0u8; 64];
+        let mut normalized_len = 0;
 
-        let mut current_idx = 0;
-        for &b in word.as_bytes() {
-            let char_val = b.to_ascii_lowercase();
-            let bit_idx = (char_val - b'a') as usize;
-
-            let node = &self.nodes[current_idx];
-            if (node.children_mask & (1 << bit_idx)) == 0 {
+        if word.len() <= 64 {
+            for &b in word {
+                let bit_idx = CHAR_TO_BIT[b as usize];
+                if bit_idx == 255 { return false; }
+                stack_buf[normalized_len] = b'a' + bit_idx;
+                normalized_len += 1;
+            }
+            let normalized = &stack_buf[..normalized_len];
+            if !self.bloom_filter.contains(normalized) {
                 return false;
             }
-            current_idx = node.children_indices[bit_idx] as usize;
-        }
 
-        self.nodes[current_idx].end_of_word
+            let mut current_idx = 0;
+            for &b in normalized {
+                let bit_idx = (b - b'a') as usize;
+                let node = unsafe { self.nodes.get_unchecked(current_idx) };
+                if (node.children_mask & (1 << bit_idx)) == 0 {
+                    return false;
+                }
+                current_idx = node.children_indices[bit_idx] as usize;
+            }
+            unsafe { self.nodes.get_unchecked(current_idx) }.end_of_word
+        } else {
+            let normalized: Vec<u8> = word.iter()
+                .map(|&b| CHAR_TO_BIT[b as usize])
+                .filter(|&idx| idx != 255)
+                .map(|idx| b'a' + idx)
+                .collect();
+
+            if normalized.len() != word.len() { return false; } // Assuming non-ASCII/invalid means no match
+
+            if !self.bloom_filter.contains(&normalized) {
+                return false;
+            }
+            let mut current_idx = 0;
+            for &b in &normalized {
+                let bit_idx = (b - b'a') as usize;
+                let node = &self.nodes[current_idx];
+                if (node.children_mask & (1 << bit_idx)) == 0 {
+                    return false;
+                }
+                current_idx = node.children_indices[bit_idx] as usize;
+            }
+            self.nodes[current_idx].end_of_word
+        }
     }
 
     pub fn print(&self) {
@@ -117,28 +178,40 @@ impl Trie {
         }
     }
 
-    pub fn words_with_prefix(&self, prefix: &str) -> Vec<String> {
-        let mut current_idx = 0; // Start at root
-        let bytes = prefix.as_bytes();
+    pub fn words_with_prefix(&self, prefix: &[u8]) -> Vec<String> {
+        let mut stack_buf = [0u8; 64];
+        let mut normalized_len = 0;
+        let can_use_stack = prefix.len() <= 64;
+
+        let mut current_idx = 0;
+        let mut buffer = if can_use_stack {
+            for &b in prefix {
+                let bit_idx = CHAR_TO_BIT[b as usize];
+                if bit_idx == 255 { return Vec::new(); }
+                stack_buf[normalized_len] = b'a' + bit_idx;
+                normalized_len += 1;
+            }
+            stack_buf[..normalized_len].to_vec()
+        } else {
+             prefix.iter()
+                .map(|&b| CHAR_TO_BIT[b as usize])
+                .filter(|&idx| idx != 255)
+                .map(|idx| b'a' + idx)
+                .collect()
+        };
 
         // 1. Navigate to the end of the prefix
-        for &b in bytes {
-            let char_val = b.to_ascii_lowercase();
-            let bit_idx = (char_val - b'a') as usize;
-
+        for &b in &buffer {
+            let bit_idx = (b - b'a') as usize;
             let node = &self.nodes[current_idx];
-            // Use the bitmask to check if the path exists
             if (node.children_mask & (1 << bit_idx)) == 0 {
-                return Vec::new(); // Prefix not found
+                return Vec::new();
             }
             current_idx = node.children_indices[bit_idx] as usize;
         }
 
         // 2. Collect all words starting from this node
         let mut results = Vec::new();
-        // Pre-allocate the buffer with the prefix to avoid mid-search reallocations
-        let mut buffer = prefix.to_ascii_lowercase().into_bytes();
-
         self.collect_words_from_node(current_idx, &mut buffer, &mut results);
         results
     }
@@ -179,34 +252,42 @@ mod tests {
     #[test]
     fn test_trie_insert_and_contains() {
         let mut trie = Trie::new(100, 3);
-        trie.insert("hello");
-        trie.insert("world");
+        trie.insert(b"hello");
+        trie.insert(b"world");
 
-        assert!(trie.contains("hello"));
-        assert!(trie.contains("world"));
-        assert!(!trie.contains("hell"));
-        assert!(!trie.contains("word"));
+        assert!(trie.contains(b"hello"));
+        assert!(trie.contains(b"world"));
+        assert!(!trie.contains(b"hell"));
+        assert!(!trie.contains(b"word"));
     }
 
     #[test]
     fn test_words_with_prefix() {
         let mut trie = Trie::new(100, 3);
-        trie.insert("apple");
-        trie.insert("app");
-        trie.insert("application");
-        trie.insert("banana");
+        trie.insert(b"apple");
+        trie.insert(b"app");
+        trie.insert(b"application");
+        trie.insert(b"banana");
 
-        let apps = trie.words_with_prefix("app");
+        let apps = trie.words_with_prefix(b"app");
         assert_eq!(apps.len(), 3);
         assert!(apps.contains(&"apple".to_string()));
         assert!(apps.contains(&"app".to_string()));
         assert!(apps.contains(&"application".to_string()));
 
-        let banas = trie.words_with_prefix("ban");
+        let banas = trie.words_with_prefix(b"ban");
         assert_eq!(banas.len(), 1);
         assert!(banas.contains(&"banana".to_string()));
 
-        let unknowns = trie.words_with_prefix("unknown");
+        let unknowns = trie.words_with_prefix(b"unknown");
         assert!(unknowns.is_empty());
+    }
+
+    #[test]
+    fn test_case_insensitivity() {
+        let mut trie = Trie::new(100, 3);
+        trie.insert(b"Apple");
+        assert!(trie.contains(b"apple"));
+        assert!(trie.contains(b"APPLE"));
     }
 }
