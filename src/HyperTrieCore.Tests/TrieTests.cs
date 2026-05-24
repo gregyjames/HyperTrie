@@ -54,4 +54,23 @@ public class TrieTests
         Assert.Contains("app", results);
         Assert.Contains("application", results);
     }
+
+    [Fact]
+    public void TestPrefixSearch_NoMatch()
+    {
+        using var trie = new TrieNative(100, 3);
+        trie.Insert("apple");
+
+        var results = trie.GetWordsWithPrefix("xyz");
+        Assert.Empty(results);
+    }
+
+    [Fact]
+    public void TestDebugPrint()
+    {
+        using var trie = new TrieNative(100, 3);
+        trie.Insert("a");
+        // Just verify it doesn't crash
+        trie.Print();
+    }
 }
