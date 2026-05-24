@@ -151,6 +151,7 @@ impl Trie {
     pub fn words_with_prefix(&self, prefix: &str) -> Vec<String> {
         let mut current_idx = 0; // Start at root
         let bytes = prefix.as_bytes();
+        let mut normalized_prefix = Vec::with_capacity(bytes.len());
 
         // 1. Navigate to the end of the prefix
         for &b in bytes {
@@ -165,14 +166,13 @@ impl Trie {
                 return Vec::new(); // Prefix not found
             }
             current_idx = node.children_indices[bit_idx] as usize;
+            normalized_prefix.push(b'a' + bit_idx as u8);
         }
 
         // 2. Collect all words starting from this node
         let mut results = Vec::new();
-        // Pre-allocate the buffer with the prefix to avoid mid-search reallocations
-        let mut buffer = prefix.to_ascii_lowercase().into_bytes();
-
-        self.collect_words_from_node(current_idx, &mut buffer, &mut results);
+        // Use the normalized prefix as the starting buffer
+        self.collect_words_from_node(current_idx, &mut normalized_prefix, &mut results);
         results
     }
 
