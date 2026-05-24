@@ -14,6 +14,7 @@ internal unsafe ref struct Utf8String : IDisposable
     private byte* _allocatedPtr;
     private bool _isHeapAllocated;
     public IntPtr Pointer {get; private set;}
+    public int Length { get; private set; }
 
     public Utf8String(string str)
     {
@@ -23,6 +24,7 @@ internal unsafe ref struct Utf8String : IDisposable
         if (string.IsNullOrEmpty(str))
         {
             Pointer = IntPtr.Zero;
+            Length = 0;
             return;
         }
 
@@ -31,6 +33,7 @@ internal unsafe ref struct Utf8String : IDisposable
             int byteCount = Encoding.UTF8.GetByteCount(str);
             int requiredSize = byteCount + 1; // +1 for null terminator
 
+            Length = byteCount;
             if (requiredSize <= STACK_THRESHOLD)
             {
                 fixed (byte* pBuffer = _fixedBuffer)
@@ -61,5 +64,6 @@ internal unsafe ref struct Utf8String : IDisposable
         }
 
         Pointer = IntPtr.Zero;
+        Length = 0;
     }
 }

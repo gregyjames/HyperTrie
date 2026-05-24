@@ -21,28 +21,29 @@ public sealed class TrieNative(int size, int numHashes = 5) : IDisposable
     private static extern void trie_free(IntPtr trie);
 
     [DllImport(DLL_NAME, CallingConvention = CallingConvention.Cdecl)]
-    private static extern void trie_insert(IntPtr trie, IntPtr word);
+    private static extern void trie_insert(IntPtr trie, IntPtr word, nuint len);
 
     [DllImport(DLL_NAME, CallingConvention = CallingConvention.Cdecl)]
     [return: MarshalAs(UnmanagedType.Bool)]
-    private static extern bool trie_contains(IntPtr trie, IntPtr word);
+    private static extern bool trie_contains(IntPtr trie, IntPtr word, nuint len);
 
     [DllImport(DLL_NAME, CallingConvention = CallingConvention.Cdecl)]
     private static extern void trie_debug_print(IntPtr trie);
 
     [DllImport(DLL_NAME, CallingConvention = CallingConvention.Cdecl)]
-    private static extern void trie_free_words(IntPtr words, UIntPtr len);
+    private static extern void trie_free_words(IntPtr words, nuint len);
 
 
     [DllImport(DLL_NAME, CallingConvention = CallingConvention.Cdecl)]
     private static extern IntPtr trie_words_with_prefix(
         IntPtr trie,
         IntPtr prefix,
+        nuint prefix_len,
         // ReSharper disable once InconsistentNaming
-        out UIntPtr out_len);
+        out nuint out_len);
 
     [DllImport(DLL_NAME, CallingConvention = CallingConvention.Cdecl)]
-    private static extern void trie_bulk_insert(IntPtr trie, IntPtr words, UIntPtr len);
+    private static extern void trie_bulk_insert(IntPtr trie, IntPtr words, IntPtr word_lens, nuint len);
     /// <summary>
     /// Inserts a new word into the TrieNative object.
     /// </summary>
@@ -50,7 +51,7 @@ public sealed class TrieNative(int size, int numHashes = 5) : IDisposable
     public unsafe void Insert(string word)
     {
         using var wordPtr = new Utf8String(word);
-        trie_insert(_handle, wordPtr.Pointer);
+        trie_insert(_handle, wordPtr.Pointer, (nuint)wordPtr.Length);
     }
 
     /// <summary>
@@ -63,8 +64,8 @@ public sealed class TrieNative(int size, int numHashes = 5) : IDisposable
         var result = new List<string>();
 
         using var prefixPtr = new Utf8String(prefix);
-        nint* wordsPtr = (IntPtr*)trie_words_with_prefix(_handle, prefixPtr.Pointer, out UIntPtr len);
-        uint count = len.ToUInt32();
+        nint* wordsPtr = (IntPtr*)trie_words_with_prefix(_handle, prefixPtr.Pointer, (nuint)prefixPtr.Length, out nuint len);
+        uint count = (uint)len;
 
         if (wordsPtr == null || count == 0)
         {
@@ -108,7 +109,7 @@ public sealed class TrieNative(int size, int numHashes = 5) : IDisposable
     public unsafe bool Contains(string word)
     {
         using var testWord = new Utf8String(word);
-        return trie_contains(_handle, testWord.Pointer);
+        return trie_contains(_handle, testWord.Pointer, (nuint)testWord.Length);
     }
 
     /// <summary>
@@ -126,55 +127,55 @@ public sealed class TrieNative(int size, int numHashes = 5) : IDisposable
         int count = words.Count;
         if (count == 0){ return;}
 
-        int totalByteCapacity = 0;
+        long totalByteCapacity = 0;
         foreach (string word in words)
         {
-            totalByteCapacity += (word.Length * 3) + 1; // Worst case UTF8
+            totalByteCapacity += Encoding.UTF8.GetByteCount(word) + 1;
         }
 
-        IntPtr bigBuffer = Marshal.AllocHGlobal((IntPtr)totalByteCapacity);
+        IntPtr bigBuffer = Marshal.AllocHGlobal(checked((IntPtr)totalByteCapacity));
         IntPtr[] ptrArray = ArrayPool<IntPtr>.Shared.Rent(count);
-
+        nuint[] lenArray = ArrayPool<nuint>.Shared.Rent(count);
 
         try
         {
             byte* currentDest = (byte*)bigBuffer.ToPointer();
-
-            #if NET5_0_OR_GREATER
-                var span = CollectionsMarshal.AsSpan(words);
-            #else
-                var span = words.ToArray().AsSpan();
-            #endif
-
-            for (int i = 0; i < count; i++)
+            int i = 0;
+            foreach (string s in words)
             {
-                string s = span[i];
                 if (string.IsNullOrEmpty(s))
                 {
+                    ptrArray[i] = IntPtr.Zero;
+                    lenArray[i] = 0;
+                    i++;
                     continue;
                 }
 
                 ptrArray[i] = (IntPtr)currentDest;
+                int byteCount = Encoding.UTF8.GetByteCount(s);
+                lenArray[i] = (nuint)byteCount;
 
                 fixed (char* pStr = s)
                 {
-                    int bytesWritten = Encoding.UTF8.GetBytes(pStr, s.Length, currentDest, totalByteCapacity);
-
+                    int bytesWritten = Encoding.UTF8.GetBytes(pStr, s.Length, currentDest, (int)(totalByteCapacity - (currentDest - (byte*)bigBuffer.ToPointer())));
                     currentDest += bytesWritten;
                     *currentDest = 0; // Null terminator
                     currentDest++;
                 }
+                i++;
             }
 
             fixed (IntPtr* pPtrs = ptrArray)
+            fixed (nuint* pLens = lenArray)
             {
-                trie_bulk_insert(_handle, (IntPtr)pPtrs, (UIntPtr)count);
+                trie_bulk_insert(_handle, (IntPtr)pPtrs, (IntPtr)pLens, (nuint)count);
             }
         }
         finally
         {
             Marshal.FreeHGlobal(bigBuffer);
             ArrayPool<IntPtr>.Shared.Return(ptrArray);
+            ArrayPool<nuint>.Shared.Return(lenArray);
         }
     }
 
