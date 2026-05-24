@@ -17,6 +17,7 @@ namespace HyperTrieCore.Tests
 
             // Assert
             Assert.Equal(IntPtr.Zero, utf8.Pointer);
+            Assert.Equal(0, utf8.Length);
         }
 
         [Fact]
@@ -30,6 +31,7 @@ namespace HyperTrieCore.Tests
 
             // Assert
             Assert.NotEqual(IntPtr.Zero, utf8.Pointer);
+            Assert.Equal(Encoding.UTF8.GetByteCount(input), utf8.Length);
             string? result = Marshal.PtrToStringAnsi(utf8.Pointer); // Read back to verify
             Assert.Equal(input, result);
         }
@@ -47,6 +49,7 @@ namespace HyperTrieCore.Tests
 
             // Assert
             Assert.NotEqual(IntPtr.Zero, utf8.Pointer);
+            Assert.Equal(Encoding.UTF8.GetByteCount(input), utf8.Length);
 
             // Manual verification of the content at the pointer
             byte[] buffer = new byte[input.Length];
@@ -71,6 +74,7 @@ namespace HyperTrieCore.Tests
 
             // Assert
             Assert.Equal(IntPtr.Zero, utf8.Pointer);
+            Assert.Equal(0, utf8.Length);
         }
 
         [Fact]

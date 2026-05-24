@@ -125,13 +125,10 @@ public sealed class TrieNative(int size, int numHashes = 5) : IDisposable
         }
 
         int count = words.Count;
-        if (count == 0){ return;}
 
-        long totalByteCapacity = 0;
-        foreach (string word in words)
-        {
-            totalByteCapacity += Encoding.UTF8.GetByteCount(word) + 1;
-        }
+        long totalByteCapacity = words
+            .Where(word => !string.IsNullOrEmpty(word))
+            .Sum(word => (long)Encoding.UTF8.GetByteCount(word!) + 1);
 
         IntPtr bigBuffer = Marshal.AllocHGlobal(checked((IntPtr)totalByteCapacity));
         IntPtr[] ptrArray = ArrayPool<IntPtr>.Shared.Rent(count);

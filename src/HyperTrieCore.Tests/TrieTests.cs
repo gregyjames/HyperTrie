@@ -21,11 +21,22 @@ public class TrieTests
     public void TestBulkInsertion()
     {
         using var trie = new TrieNative(4, 3);
-        trie.BulkInsert(["apple", "banana"]);
+        trie.BulkInsert(["apple", "banana", "", null!]);
 
         Assert.True(trie.Contains("apple"));
         Assert.True(trie.Contains("banana"));
         Assert.False(trie.Contains("orange"));
+        Assert.False(trie.Contains(""));
+    }
+
+    [Fact]
+    public void TestBulkInsertion_NullOrEmpty()
+    {
+        using var trie = new TrieNative(4, 3);
+        trie.BulkInsert(null);
+        trie.BulkInsert([]);
+
+        Assert.False(trie.Contains("apple"));
     }
 
     [Fact]
