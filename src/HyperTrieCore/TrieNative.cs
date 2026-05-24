@@ -65,13 +65,13 @@ public sealed class TrieNative(int size, int numHashes = 5) : IDisposable
 
         using var prefixPtr = new Utf8String(prefix);
         nint* wordsPtr = (IntPtr*)trie_words_with_prefix(_handle, prefixPtr.Pointer, (nuint)prefixPtr.Length, out nuint len);
-        uint count = (uint)len;
 
-        if (wordsPtr == null || count == 0)
+        if (wordsPtr == null)
         {
             return [];
         }
 
+        uint count = (uint)len;
         try
         {
             for (uint i = 0; i < count; i++)
@@ -80,11 +80,7 @@ public sealed class TrieNative(int size, int numHashes = 5) : IDisposable
 
                 if (currentWordPtr != IntPtr.Zero)
                 {
-                    string? word = Marshal.PtrToStringUTF8(currentWordPtr);
-                    if (word != null)
-                    {
-                        result.Add(word);
-                    }
+                    result.Add(Marshal.PtrToStringUTF8(currentWordPtr)!);
                 }
             }
         }

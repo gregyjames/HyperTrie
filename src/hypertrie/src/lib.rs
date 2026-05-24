@@ -94,8 +94,8 @@ pub unsafe extern "C" fn trie_words_with_prefix(
         let prefix_str = std::str::from_utf8_unchecked(prefix_slice);
         let words = (*trie).words_with_prefix(prefix_str);
 
-        *out_len = words.len();
         if words.is_empty() {
+            *out_len = 0;
             return ptr::null_mut();
         }
 
@@ -106,6 +106,7 @@ pub unsafe extern "C" fn trie_words_with_prefix(
             }
         }
 
+        *out_len = c_strings.len();
         if c_strings.is_empty() {
             return ptr::null_mut();
         }

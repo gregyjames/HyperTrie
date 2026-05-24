@@ -54,6 +54,7 @@ impl Trie {
     pub fn insert(&mut self, word: &str) {
         let mut current_idx = 0;
         let bytes = word.as_bytes();
+        let mut normalized = Vec::with_capacity(bytes.len());
 
         for &b in bytes {
             let bit_idx = CHAR_TO_BIT[b as usize] as usize;
@@ -76,20 +77,34 @@ impl Trie {
             } else {
                 current_idx = node.children_indices[bit_idx] as usize;
             }
+            normalized.push(b'a' + bit_idx as u8);
         }
 
         self.nodes[current_idx].end_of_word = true;
-        self.bloom_filter.insert(word);
+        if let Ok(normalized_str) = std::str::from_utf8(&normalized) {
+            self.bloom_filter.insert(normalized_str);
+        }
     }
 
     pub fn contains(&self, word: &str) -> bool {
+        let bytes = word.as_bytes();
+        let mut normalized = Vec::with_capacity(bytes.len());
+        for &b in bytes {
+            let bit_idx = CHAR_TO_BIT[b as usize] as usize;
+            if bit_idx != 255 {
+                normalized.push(b'a' + bit_idx as u8);
+            }
+        }
+
+        let normalized_str = unsafe { std::str::from_utf8_unchecked(&normalized) };
+
         // Bloom Filter is usually faster than a full Trie walk for non-members
-        if !self.bloom_filter.contains(word) {
+        if !self.bloom_filter.contains(normalized_str) {
             return false;
         }
 
         let mut current_idx = 0;
-        for &b in word.as_bytes() {
+        for &b in bytes {
             let bit_idx = CHAR_TO_BIT[b as usize] as usize;
             if bit_idx == 255 {
                 continue;

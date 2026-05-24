@@ -73,4 +73,38 @@ public class TrieTests
         // Just verify it doesn't crash
         trie.Print();
     }
+
+    [Fact]
+    public void TestDefaultNumHashes()
+    {
+        using var trie = new TrieNative(100);
+        trie.Insert("test");
+        Assert.True(trie.Contains("test"));
+    }
+
+    [Fact]
+    public void TestInvalidCharactersIgnored()
+    {
+        using var trie = new TrieNative(100, 3);
+        trie.Insert("a1b"); // '1' should be ignored
+        Assert.True(trie.Contains("ab"));
+        // "a1b" contains "a", "1" (ignored), "b" -> becomes "ab" in trie
+        // contains("a1b") also normalizes to "ab"
+        Assert.True(trie.Contains("a1b"));
+        Assert.False(trie.Contains("ac"));
+    }
+
+    [Fact]
+    public void TestFinalizer()
+    {
+        void CreateAndForget()
+        {
+            var trie = new TrieNative(100, 3);
+            trie.Insert("test");
+        }
+
+        CreateAndForget();
+        GC.Collect();
+        GC.WaitForPendingFinalizers();
+    }
 }
