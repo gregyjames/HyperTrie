@@ -190,6 +190,7 @@ pub unsafe extern "C" fn trie_bulk_insert(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::ffi::CStr;
     use std::ptr;
 
     fn make_trie() -> *mut Trie {
