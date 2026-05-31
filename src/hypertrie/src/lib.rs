@@ -418,6 +418,14 @@ mod tests {
     }
 
     #[test]
+    fn test_words_with_prefix_with_interior_null() {
+        let mut trie = Trie::new(100, 3);
+        trie.insert("a\0b"); // Interior null is ignored by CHAR_TO_BIT, becomes "ab"
+        let words = trie.words_with_prefix("a");
+        assert!(words.contains(&"ab".to_string()));
+    }
+
+    #[test]
     fn test_words_with_prefix_null_out_len_returns_null() {
         let t = make_trie();
         let prefix = "app";

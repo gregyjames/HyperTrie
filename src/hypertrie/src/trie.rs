@@ -54,6 +54,7 @@ impl Trie {
     pub fn insert(&mut self, word: &str) {
         let mut current_idx = 0;
         let bytes = word.as_bytes();
+        let mut normalized_bytes = Vec::with_capacity(bytes.len());
 
         for &b in bytes {
             let bit_idx = CHAR_TO_BIT[b as usize] as usize;
@@ -61,10 +62,13 @@ impl Trie {
                 continue;
             }
 
+            let char_val = b'a' + bit_idx as u8;
+            normalized_bytes.push(char_val);
+
             // Check if child exists using bitmask
             if (self.nodes[current_idx].children_mask & (1 << bit_idx)) == 0 {
                 let new_node_idx = self.nodes.len() as u32;
-                self.nodes.push(Node::new(b.to_ascii_lowercase()));
+                self.nodes.push(Node::new(char_val));
 
                 // Update parent
                 let node = &mut self.nodes[current_idx];
@@ -78,21 +82,22 @@ impl Trie {
         }
 
         self.nodes[current_idx].end_of_word = true;
-        self.bloom_filter.insert(word);
+        self.bloom_filter.insert_bytes(&normalized_bytes);
     }
 
     pub fn contains(&self, word: &str) -> bool {
-        // Bloom Filter is usually faster than a full Trie walk for non-members
-        if !self.bloom_filter.contains(word) {
-            return false;
-        }
-
         let mut current_idx = 0;
-        for &b in word.as_bytes() {
+        let bytes = word.as_bytes();
+        let mut normalized_bytes = Vec::with_capacity(bytes.len());
+
+        for &b in bytes {
             let bit_idx = CHAR_TO_BIT[b as usize] as usize;
             if bit_idx > 25 {
-                return false;
+                continue;
             }
+
+            let char_val = b'a' + bit_idx as u8;
+            normalized_bytes.push(char_val);
 
             let node = &self.nodes[current_idx];
             if (node.children_mask & (1 << bit_idx)) == 0 {
@@ -101,7 +106,13 @@ impl Trie {
             current_idx = node.children_indices[bit_idx] as usize;
         }
 
-        self.nodes[current_idx].end_of_word
+        if !self.nodes[current_idx].end_of_word {
+            return false;
+        }
+
+        // Bloom Filter is usually faster than a full Trie walk for non-members
+        // We check it last here because we already have normalized bytes
+        self.bloom_filter.contains_bytes(&normalized_bytes)
     }
 
     pub fn print(&self) {
@@ -135,13 +146,16 @@ impl Trie {
     pub fn words_with_prefix(&self, prefix: &str) -> Vec<String> {
         let mut current_idx = 0; // Start at root
         let bytes = prefix.as_bytes();
+        let mut normalized_prefix = Vec::with_capacity(bytes.len());
 
         // 1. Navigate to the end of the prefix
         for &b in bytes {
             let bit_idx = CHAR_TO_BIT[b as usize] as usize;
             if bit_idx > 25 {
-                return Vec::new();
+                continue;
             }
+
+            normalized_prefix.push(b'a' + bit_idx as u8);
 
             let node = &self.nodes[current_idx];
             // Use the bitmask to check if the path exists
@@ -151,10 +165,12 @@ impl Trie {
             current_idx = node.children_indices[bit_idx] as usize;
         }
 
-        // 2. Collect all words starting from this node
+        if normalized_prefix.is_empty() && !prefix.is_empty() {
+            return Vec::new();
+        }
         let mut results = Vec::new();
         // Pre-allocate the buffer with the prefix to avoid mid-search reallocations
-        let mut buffer = prefix.to_ascii_lowercase().into_bytes();
+        let mut buffer = normalized_prefix;
 
         self.collect_words_from_node(current_idx, &mut buffer, &mut results);
         results
@@ -225,5 +241,33 @@ mod tests {
 
         let unknowns = trie.words_with_prefix("unknown");
         assert!(unknowns.is_empty());
+    }
+
+    #[test]
+    fn test_trie_invalid_chars() {
+        let mut trie = Trie::new(100, 3);
+        trie.insert("abc 123");
+        // "abc 123" becomes "abc" because space and digits are ignored
+        assert!(trie.contains("abc"));
+        assert!(trie.contains("abc 123"));
+        assert!(trie.contains("a b c"));
+
+        trie.insert("def");
+        assert!(trie.words_with_prefix("abc").contains(&"abc".to_string()));
+        assert!(trie.words_with_prefix("abc ").contains(&"abc".to_string()));
+        assert!(trie.words_with_prefix("1").is_empty());
+
+        // Test extended ASCII
+        trie.insert("x\u{00A0}y");
+        assert!(trie.contains("xy"));
+    }
+
+    #[test]
+    fn test_trie_case_insensitivity() {
+        let mut trie = Trie::new(100, 3);
+        trie.insert("Hello");
+        assert!(trie.contains("hello"));
+        assert!(trie.contains("HELLO"));
+        assert!(trie.contains("HeLlO"));
     }
 }

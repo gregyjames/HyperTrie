@@ -20,6 +20,10 @@ impl BloomFilter {
     }
 
     pub fn insert(&mut self, item: &str) {
+        self.insert_bytes(item.as_bytes());
+    }
+
+    pub fn insert_bytes(&mut self, item: &[u8]) {
         let base_hash = self.get_base_hash(item);
         for i in 0..self.num_hashes {
             let final_hash = self.derive_hash(base_hash, i);
@@ -29,6 +33,10 @@ impl BloomFilter {
     }
 
     pub fn contains(&self, item: &str) -> bool {
+        self.contains_bytes(item.as_bytes())
+    }
+
+    pub fn contains_bytes(&self, item: &[u8]) -> bool {
         let base_hash = self.get_base_hash(item);
         for i in 0..self.num_hashes {
             let final_hash = self.derive_hash(base_hash, i);
@@ -42,9 +50,9 @@ impl BloomFilter {
     }
 
     #[inline(always)]
-    fn get_base_hash(&self, item: &str) -> u64 {
+    fn get_base_hash(&self, item: &[u8]) -> u64 {
         let mut hasher = GxHasher::with_seed(SEED);
-        hasher.write(item.as_bytes());
+        hasher.write(item);
         hasher.finish()
     }
 
@@ -185,7 +193,7 @@ mod tests {
     /// Helper to collect hashes for testing since we removed hash_item from the API
     fn get_hashes(bf: &BloomFilter, item: &str) -> Vec<usize> {
         let mut hashes = Vec::new();
-        let base_hash = bf.get_base_hash(item);
+        let base_hash = bf.get_base_hash(item.as_bytes());
         for i in 0..bf.num_hashes {
             let final_hash = bf.derive_hash(base_hash, i);
             hashes.push(final_hash % bf.size);
