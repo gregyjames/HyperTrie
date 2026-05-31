@@ -178,9 +178,13 @@ pub unsafe extern "C" fn trie_bulk_insert(
         for i in 0..len {
             let word_ptr = word_ptrs[i];
             let word_len = word_lens[i];
-            if !word_ptr.is_null() && word_len > 0 {
-                let word_slice = slice::from_raw_parts(word_ptr, word_len);
-                let word = std::str::from_utf8_unchecked(word_slice);
+            if !word_ptr.is_null() {
+                let word = if word_len == 0 {
+                    ""
+                } else {
+                    let word_slice = slice::from_raw_parts(word_ptr, word_len);
+                    std::str::from_utf8_unchecked(word_slice)
+                };
                 trie.insert(word);
             }
         }
@@ -243,7 +247,10 @@ mod tests {
     #[test]
     fn test_insert_null_word_is_safe() {
         let t = make_trie();
-        unsafe { trie_insert(t, ptr::null(), 0) };
+        unsafe {
+            trie_insert(t, ptr::null(), 0);
+            trie_insert(t, ptr::null(), 5); // null with non-zero len
+        };
         unsafe { trie_free(t) };
     }
 
@@ -257,7 +264,10 @@ mod tests {
     #[test]
     fn test_contains_null_word_returns_false() {
         let t = make_trie();
-        let result = unsafe { trie_contains(t, ptr::null(), 0) };
+        let result = unsafe {
+            assert!(!trie_contains(t, ptr::null(), 0));
+            trie_contains(t, ptr::null(), 5) // null with non-zero len
+        };
         assert!(!result);
         unsafe { trie_free(t) };
     }
@@ -303,7 +313,24 @@ mod tests {
     #[test]
     fn test_bulk_insert_null_words_is_safe() {
         let t = make_trie();
-        unsafe { trie_bulk_insert(t, ptr::null(), ptr::null(), 0) };
+        unsafe {
+            trie_bulk_insert(t, ptr::null(), ptr::null(), 0);
+            trie_bulk_insert(t, ["foo".as_ptr()].as_ptr(), ptr::null(), 1); // null lengths
+        };
+        unsafe { trie_free(t) };
+    }
+
+    #[test]
+    fn test_bulk_insert_with_null_and_empty_entries() {
+        let t = make_trie();
+        let words = ["foo", "", "bar"];
+        let mut ptrs = [words[0].as_ptr(), ptr::null(), words[2].as_ptr()];
+        let lens = [3, 0, 3];
+        unsafe {
+            trie_bulk_insert(t, ptrs.as_mut_ptr(), lens.as_ptr(), 3);
+            assert!(trie_contains(t, words[0].as_ptr(), 3));
+            assert!(trie_contains(t, words[2].as_ptr(), 3));
+        }
         unsafe { trie_free(t) };
     }
 
@@ -382,7 +409,10 @@ mod tests {
     fn test_words_with_prefix_null_prefix_returns_null() {
         let t = make_trie();
         let mut out_len: usize = 0;
-        let result = unsafe { trie_words_with_prefix(t, ptr::null(), 0, &mut out_len) };
+        let result = unsafe {
+            assert!(trie_words_with_prefix(t, ptr::null(), 0, &mut out_len).is_null());
+            trie_words_with_prefix(t, ptr::null(), 5, &mut out_len) // null with non-zero len
+        };
         assert!(result.is_null());
         unsafe { trie_free(t) };
     }
