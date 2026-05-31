@@ -54,8 +54,10 @@ impl Trie {
     pub fn insert(&mut self, word: &str) {
         let mut current_idx = 0;
         let bytes = word.as_bytes();
-        let mut normalized_bytes = Vec::with_capacity(bytes.len());
+        let mut stack_buf = [0u8; 64];
+        let mut heap_buf: Option<Vec<u8>> = None;
 
+        let mut write_idx = 0;
         for &b in bytes {
             let bit_idx = CHAR_TO_BIT[b as usize] as usize;
             if bit_idx > 25 {
@@ -63,7 +65,17 @@ impl Trie {
             }
 
             let char_val = b'a' + bit_idx as u8;
-            normalized_bytes.push(char_val);
+            if write_idx < 64 {
+                stack_buf[write_idx] = char_val;
+            } else {
+                let v = heap_buf.get_or_insert_with(|| {
+                    let mut v = Vec::with_capacity(bytes.len());
+                    v.extend_from_slice(&stack_buf[..64]);
+                    v
+                });
+                v.push(char_val);
+            }
+            write_idx += 1;
 
             // Check if child exists using bitmask
             if (self.nodes[current_idx].children_mask & (1 << bit_idx)) == 0 {
@@ -82,14 +94,20 @@ impl Trie {
         }
 
         self.nodes[current_idx].end_of_word = true;
-        self.bloom_filter.insert_bytes(&normalized_bytes);
+        let normalized = if let Some(ref v) = heap_buf {
+            v.as_slice()
+        } else {
+            &stack_buf[..write_idx]
+        };
+        self.bloom_filter.insert_bytes(normalized);
     }
 
     pub fn contains(&self, word: &str) -> bool {
-        let mut current_idx = 0;
         let bytes = word.as_bytes();
-        let mut normalized_bytes = Vec::with_capacity(bytes.len());
+        let mut stack_buf = [0u8; 64];
+        let mut heap_buf: Option<Vec<u8>> = None;
 
+        let mut write_idx = 0;
         for &b in bytes {
             let bit_idx = CHAR_TO_BIT[b as usize] as usize;
             if bit_idx > 25 {
@@ -97,8 +115,33 @@ impl Trie {
             }
 
             let char_val = b'a' + bit_idx as u8;
-            normalized_bytes.push(char_val);
+            if write_idx < 64 {
+                stack_buf[write_idx] = char_val;
+            } else {
+                let v = heap_buf.get_or_insert_with(|| {
+                    let mut v = Vec::with_capacity(bytes.len());
+                    v.extend_from_slice(&stack_buf[..64]);
+                    v
+                });
+                v.push(char_val);
+            }
+            write_idx += 1;
+        }
 
+        let normalized = if let Some(ref v) = heap_buf {
+            v.as_slice()
+        } else {
+            &stack_buf[..write_idx]
+        };
+
+        // Bloom Filter is usually faster than a full Trie walk for non-members
+        if !self.bloom_filter.contains_bytes(normalized) {
+            return false;
+        }
+
+        let mut current_idx = 0;
+        for &char_val in normalized {
+            let bit_idx = (char_val - b'a') as usize;
             let node = &self.nodes[current_idx];
             if (node.children_mask & (1 << bit_idx)) == 0 {
                 return false;
@@ -106,13 +149,7 @@ impl Trie {
             current_idx = node.children_indices[bit_idx] as usize;
         }
 
-        if !self.nodes[current_idx].end_of_word {
-            return false;
-        }
-
-        // Bloom Filter is usually faster than a full Trie walk for non-members
-        // We check it last here because we already have normalized bytes
-        self.bloom_filter.contains_bytes(&normalized_bytes)
+        self.nodes[current_idx].end_of_word
     }
 
     pub fn print(&self) {
@@ -146,8 +183,10 @@ impl Trie {
     pub fn words_with_prefix(&self, prefix: &str) -> Vec<String> {
         let mut current_idx = 0; // Start at root
         let bytes = prefix.as_bytes();
-        let mut normalized_prefix = Vec::with_capacity(bytes.len());
+        let mut stack_buf = [0u8; 64];
+        let mut heap_buf: Option<Vec<u8>> = None;
 
+        let mut write_idx = 0;
         // 1. Navigate to the end of the prefix
         for &b in bytes {
             let bit_idx = CHAR_TO_BIT[b as usize] as usize;
@@ -155,7 +194,18 @@ impl Trie {
                 continue;
             }
 
-            normalized_prefix.push(b'a' + bit_idx as u8);
+            let char_val = b'a' + bit_idx as u8;
+            if write_idx < 64 {
+                stack_buf[write_idx] = char_val;
+            } else {
+                let v = heap_buf.get_or_insert_with(|| {
+                    let mut v = Vec::with_capacity(bytes.len());
+                    v.extend_from_slice(&stack_buf[..64]);
+                    v
+                });
+                v.push(char_val);
+            }
+            write_idx += 1;
 
             let node = &self.nodes[current_idx];
             // Use the bitmask to check if the path exists
@@ -165,13 +215,18 @@ impl Trie {
             current_idx = node.children_indices[bit_idx] as usize;
         }
 
-        if normalized_prefix.is_empty() && !prefix.is_empty() {
+        if write_idx == 0 && !prefix.is_empty() {
             return Vec::new();
         }
-        let mut results = Vec::new();
-        // Pre-allocate the buffer with the prefix to avoid mid-search reallocations
-        let mut buffer = normalized_prefix;
 
+        let mut buffer = if let Some(v) = heap_buf {
+            v
+        } else {
+            stack_buf[..write_idx].to_vec()
+        };
+
+        // 2. Collect all words starting from this node
+        let mut results = Vec::new();
         self.collect_words_from_node(current_idx, &mut buffer, &mut results);
         results
     }
