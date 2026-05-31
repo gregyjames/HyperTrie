@@ -101,7 +101,10 @@ mod tests {
             bf.insert_bytes(w.as_bytes());
         }
         for w in &words {
-            assert!(bf.contains_bytes(w.as_bytes()), "expected '{w}' to be found");
+            assert!(
+                bf.contains_bytes(w.as_bytes()),
+                "expected '{w}' to be found"
+            );
         }
     }
 
