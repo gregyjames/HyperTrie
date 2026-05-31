@@ -2,6 +2,17 @@ use crate::bloom_filter::BloomFilter;
 
 const ALPHABET_SIZE: usize = 26;
 
+static CHAR_TO_BIT: [u8; 256] = {
+    let mut table = [255u8; 256];
+    let mut i = 0;
+    while i < 26 {
+        table[(b'a' + i) as usize] = i;
+        table[(b'A' + i) as usize] = i;
+        i += 1;
+    }
+    table
+};
+
 pub struct Node {
     pub letter: u8,
     pub children_mask: u32,
@@ -45,13 +56,15 @@ impl Trie {
         let bytes = word.as_bytes();
 
         for &b in bytes {
-            let char_val = b.to_ascii_lowercase();
-            let bit_idx = (char_val - b'a') as usize;
+            let bit_idx = CHAR_TO_BIT[b as usize] as usize;
+            if bit_idx > 25 {
+                continue;
+            }
 
             // Check if child exists using bitmask
             if (self.nodes[current_idx].children_mask & (1 << bit_idx)) == 0 {
                 let new_node_idx = self.nodes.len() as u32;
-                self.nodes.push(Node::new(char_val));
+                self.nodes.push(Node::new(b.to_ascii_lowercase()));
 
                 // Update parent
                 let node = &mut self.nodes[current_idx];
@@ -76,8 +89,10 @@ impl Trie {
 
         let mut current_idx = 0;
         for &b in word.as_bytes() {
-            let char_val = b.to_ascii_lowercase();
-            let bit_idx = (char_val - b'a') as usize;
+            let bit_idx = CHAR_TO_BIT[b as usize] as usize;
+            if bit_idx > 25 {
+                return false;
+            }
 
             let node = &self.nodes[current_idx];
             if (node.children_mask & (1 << bit_idx)) == 0 {
@@ -123,8 +138,10 @@ impl Trie {
 
         // 1. Navigate to the end of the prefix
         for &b in bytes {
-            let char_val = b.to_ascii_lowercase();
-            let bit_idx = (char_val - b'a') as usize;
+            let bit_idx = CHAR_TO_BIT[b as usize] as usize;
+            if bit_idx > 25 {
+                return Vec::new();
+            }
 
             let node = &self.nodes[current_idx];
             // Use the bitmask to check if the path exists
