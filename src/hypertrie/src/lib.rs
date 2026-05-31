@@ -1,4 +1,4 @@
-use std::ffi::{CStr, CString};
+use std::ffi::CString;
 use std::os::raw::c_char;
 use std::ptr;
 use std::slice;
@@ -190,15 +190,10 @@ pub unsafe extern "C" fn trie_bulk_insert(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::ffi::CString;
     use std::ptr;
 
     fn make_trie() -> *mut Trie {
         unsafe { trie_new(1024, 3) }
-    }
-
-    fn cstr(s: &str) -> CString {
-        CString::new(s).unwrap()
     }
 
     // --- trie_new / trie_free ---
@@ -326,12 +321,7 @@ mod tests {
     #[test]
     fn test_words_with_prefix_basic() {
         let t = make_trie();
-        let words = [
-            "apple",
-            "application",
-            "apply",
-            "banana",
-        ];
+        let words = ["apple", "application", "apply", "banana"];
         let ptrs: Vec<*const u8> = words.iter().map(|s| s.as_ptr()).collect();
         let lens: Vec<usize> = words.iter().map(|s| s.len()).collect();
         unsafe {
@@ -381,7 +371,9 @@ mod tests {
     fn test_words_with_prefix_null_trie_returns_null() {
         let prefix = "app";
         let mut out_len: usize = 0;
-        let result = unsafe { trie_words_with_prefix(ptr::null(), prefix.as_ptr(), prefix.len(), &mut out_len) };
+        let result = unsafe {
+            trie_words_with_prefix(ptr::null(), prefix.as_ptr(), prefix.len(), &mut out_len)
+        };
         assert!(result.is_null());
     }
 
@@ -398,7 +390,8 @@ mod tests {
     fn test_words_with_prefix_null_out_len_returns_null() {
         let t = make_trie();
         let prefix = "app";
-        let result = unsafe { trie_words_with_prefix(t, prefix.as_ptr(), prefix.len(), ptr::null_mut()) };
+        let result =
+            unsafe { trie_words_with_prefix(t, prefix.as_ptr(), prefix.len(), ptr::null_mut()) };
         assert!(result.is_null());
         unsafe { trie_free(t) };
     }
