@@ -19,7 +19,7 @@ impl BloomFilter {
         }
     }
 
-    pub fn insert(&mut self, item: &str) {
+    pub fn insert_bytes(&mut self, item: &[u8]) {
         let base_hash = self.get_base_hash(item);
         for i in 0..self.num_hashes {
             let final_hash = self.derive_hash(base_hash, i);
@@ -28,7 +28,7 @@ impl BloomFilter {
         }
     }
 
-    pub fn contains(&self, item: &str) -> bool {
+    pub fn contains_bytes(&self, item: &[u8]) -> bool {
         let base_hash = self.get_base_hash(item);
         for i in 0..self.num_hashes {
             let final_hash = self.derive_hash(base_hash, i);
@@ -42,9 +42,9 @@ impl BloomFilter {
     }
 
     #[inline(always)]
-    fn get_base_hash(&self, item: &str) -> u64 {
+    fn get_base_hash(&self, item: &[u8]) -> u64 {
         let mut hasher = GxHasher::with_seed(SEED);
-        hasher.write(item.as_bytes());
+        hasher.write(item);
         hasher.finish()
     }
 
@@ -72,16 +72,16 @@ mod tests {
     #[test]
     fn test_new_contains_nothing() {
         let bf = make_filter(1024, 3);
-        assert!(!bf.contains("hello"));
-        assert!(!bf.contains("world"));
+        assert!(!bf.contains_bytes(b"hello"));
+        assert!(!bf.contains_bytes(b"world"));
     }
 
     #[test]
     fn test_new_size_one() {
         // degenerate but shouldn't panic
         let mut bf = make_filter(1, 1);
-        bf.insert("x");
-        assert!(bf.contains("x"));
+        bf.insert_bytes(b"x");
+        assert!(bf.contains_bytes(b"x"));
     }
 
     // --- insert / contains ---
@@ -89,8 +89,8 @@ mod tests {
     #[test]
     fn test_inserted_item_is_found() {
         let mut bf = make_filter(1024, 3);
-        bf.insert("hello");
-        assert!(bf.contains("hello"));
+        bf.insert_bytes(b"hello");
+        assert!(bf.contains_bytes(b"hello"));
     }
 
     #[test]
@@ -98,10 +98,13 @@ mod tests {
         let mut bf = make_filter(1024, 3);
         let words = ["apple", "banana", "cherry", "date", "elderberry"];
         for w in &words {
-            bf.insert(w);
+            bf.insert_bytes(w.as_bytes());
         }
         for w in &words {
-            assert!(bf.contains(w), "expected '{w}' to be found");
+            assert!(
+                bf.contains_bytes(w.as_bytes()),
+                "expected '{w}' to be found"
+            );
         }
     }
 
@@ -110,58 +113,58 @@ mod tests {
         // With a large filter and few items, false positives should not occur
         // for these specific values — if this ever flakes, increase size.
         let mut bf = make_filter(8192, 4);
-        bf.insert("present");
-        assert!(!bf.contains("absent"));
-        assert!(!bf.contains("also_absent"));
+        bf.insert_bytes(b"present");
+        assert!(!bf.contains_bytes(b"absent"));
+        assert!(!bf.contains_bytes(b"also_absent"));
     }
 
     #[test]
     fn test_insert_empty_string() {
         let mut bf = make_filter(1024, 3);
-        bf.insert("");
-        assert!(bf.contains(""));
+        bf.insert_bytes(b"");
+        assert!(bf.contains_bytes(b""));
     }
 
     #[test]
     fn test_empty_string_not_present_by_default() {
         let bf = make_filter(1024, 3);
-        assert!(!bf.contains(""));
+        assert!(!bf.contains_bytes(b""));
     }
 
     #[test]
     fn test_insert_is_idempotent() {
         let mut bf = make_filter(1024, 3);
-        bf.insert("repeat");
-        bf.insert("repeat");
-        assert!(bf.contains("repeat"));
+        bf.insert_bytes(b"repeat");
+        bf.insert_bytes(b"repeat");
+        assert!(bf.contains_bytes(b"repeat"));
     }
 
     #[test]
     fn test_unicode_item() {
         let mut bf = make_filter(1024, 3);
-        bf.insert("héllo");
-        bf.insert("日本語");
-        assert!(bf.contains("héllo"));
-        assert!(bf.contains("日本語"));
-        assert!(!bf.contains("hello")); // ASCII variant is distinct
+        bf.insert_bytes("héllo".as_bytes());
+        bf.insert_bytes("日本語".as_bytes());
+        assert!(bf.contains_bytes("héllo".as_bytes()));
+        assert!(bf.contains_bytes("日本語".as_bytes()));
+        assert!(!bf.contains_bytes(b"hello")); // ASCII variant is distinct
     }
 
     #[test]
     fn test_case_sensitive() {
         let mut bf = make_filter(1024, 3);
-        bf.insert("Hello");
-        assert!(bf.contains("Hello"));
-        assert!(!bf.contains("hello"));
-        assert!(!bf.contains("HELLO"));
+        bf.insert_bytes(b"Hello");
+        assert!(bf.contains_bytes(b"Hello"));
+        assert!(!bf.contains_bytes(b"hello"));
+        assert!(!bf.contains_bytes(b"HELLO"));
     }
 
     #[test]
     fn test_similar_strings_are_distinct() {
         let mut bf = make_filter(8192, 4);
-        bf.insert("abc");
-        assert!(!bf.contains("ab"));
-        assert!(!bf.contains("abcd"));
-        assert!(!bf.contains("ABC"));
+        bf.insert_bytes(b"abc");
+        assert!(!bf.contains_bytes(b"ab"));
+        assert!(!bf.contains_bytes(b"abcd"));
+        assert!(!bf.contains_bytes(b"ABC"));
     }
 
     // --- num_hashes boundary ---
@@ -169,23 +172,23 @@ mod tests {
     #[test]
     fn test_single_hash() {
         let mut bf = make_filter(1024, 1);
-        bf.insert("one_hash");
-        assert!(bf.contains("one_hash"));
-        assert!(!bf.contains("different"));
+        bf.insert_bytes(b"one_hash");
+        assert!(bf.contains_bytes(b"one_hash"));
+        assert!(!bf.contains_bytes(b"different"));
     }
 
     #[test]
     fn test_many_hashes() {
         let mut bf = make_filter(4096, 10);
-        bf.insert("many_hashes");
-        assert!(bf.contains("many_hashes"));
+        bf.insert_bytes(b"many_hashes");
+        assert!(bf.contains_bytes(b"many_hashes"));
     }
 
     // --- hash_item determinism ---
     /// Helper to collect hashes for testing since we removed hash_item from the API
     fn get_hashes(bf: &BloomFilter, item: &str) -> Vec<usize> {
         let mut hashes = Vec::new();
-        let base_hash = bf.get_base_hash(item);
+        let base_hash = bf.get_base_hash(item.as_bytes());
         for i in 0..bf.num_hashes {
             let final_hash = bf.derive_hash(base_hash, i);
             hashes.push(final_hash % bf.size);
@@ -228,11 +231,11 @@ mod tests {
         // that were never inserted. FP rate should be well under 1%.
         let mut bf = make_filter(16384, 4);
         for i in 0..100u32 {
-            bf.insert(&format!("inserted_{i}"));
+            bf.insert_bytes(format!("inserted_{i}").as_bytes());
         }
         let mut false_positives = 0;
         for i in 0..1000u32 {
-            if bf.contains(&format!("probe_{i}")) {
+            if bf.contains_bytes(format!("probe_{i}").as_bytes()) {
                 false_positives += 1;
             }
         }
