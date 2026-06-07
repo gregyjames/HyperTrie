@@ -1,6 +1,19 @@
-use crate::bloom_filter::BloomFilter;
+use crate::bloom_filter::{BloomFilter, SEED};
+use gxhash::GxHasher;
+use std::hash::Hasher;
 
 const ALPHABET_SIZE: usize = 26;
+
+static CHAR_TO_BIT: [u8; 256] = {
+    let mut table = [255u8; 256];
+    let mut i = 0;
+    while i < 26 {
+        table[(b'a' + i as u8) as usize] = i as u8;
+        table[(b'A' + i as u8) as usize] = i as u8;
+        i += 1;
+    }
+    table
+};
 
 pub struct Node {
     pub letter: u8,
@@ -31,7 +44,7 @@ impl Trie {
             .checked_next_power_of_two()
             .expect("Next power of 2 usize overflow");
 
-        let mut nodes = Vec::with_capacity(1024);
+        let mut nodes = Vec::with_capacity(size);
         nodes.push(Node::new(0));
 
         Trie {
@@ -41,52 +54,163 @@ impl Trie {
     }
 
     pub fn insert(&mut self, word: &str) {
-        let mut current_idx = 0;
         let bytes = word.as_bytes();
+        let mut stack_buf = [0u8; 64];
+        let normalized = if bytes.len() <= 64 {
+            &mut stack_buf[..bytes.len()]
+        } else {
+            return self.insert_slow(word);
+        };
+
+        let mut current_idx = 0;
+        let mut count = 0;
 
         for &b in bytes {
+            let bit_idx = unsafe { *CHAR_TO_BIT.get_unchecked(b as usize) as usize };
+            if bit_idx == 255 {
+                continue;
+            }
+
             let char_val = b.to_ascii_lowercase();
-            let bit_idx = (char_val - b'a') as usize;
+            normalized[count] = char_val;
+            count += 1;
 
             // Check if child exists using bitmask
-            if (self.nodes[current_idx].children_mask & (1 << bit_idx)) == 0 {
+            let node = unsafe { self.nodes.get_unchecked(current_idx) };
+            if (node.children_mask & (1 << bit_idx)) == 0 {
                 let new_node_idx = self.nodes.len() as u32;
                 self.nodes.push(Node::new(char_val));
 
                 // Update parent
-                let node = &mut self.nodes[current_idx];
+                let node = unsafe { self.nodes.get_unchecked_mut(current_idx) };
                 node.children_mask |= 1 << bit_idx;
-                node.children_indices[bit_idx] = new_node_idx;
+                unsafe {
+                    *node.children_indices.get_unchecked_mut(bit_idx) = new_node_idx;
+                }
 
                 current_idx = new_node_idx as usize;
             } else {
-                current_idx = self.nodes[current_idx].children_indices[bit_idx] as usize;
+                current_idx = unsafe { *node.children_indices.get_unchecked(bit_idx) as usize };
             }
         }
 
-        self.nodes[current_idx].end_of_word = true;
-        self.bloom_filter.insert(word);
+        unsafe {
+            self.nodes.get_unchecked_mut(current_idx).end_of_word = true;
+        }
+
+        let mut hasher = GxHasher::with_seed(SEED);
+        hasher.write(&normalized[..count]);
+        self.bloom_filter.insert_hash(hasher.finish());
+    }
+
+    #[inline(never)]
+    fn insert_slow(&mut self, word: &str) {
+        let mut current_idx = 0;
+        let mut normalized = Vec::with_capacity(word.len());
+
+        for &b in word.as_bytes() {
+            let bit_idx = unsafe { *CHAR_TO_BIT.get_unchecked(b as usize) as usize };
+            if bit_idx == 255 {
+                continue;
+            }
+
+            let char_val = b.to_ascii_lowercase();
+            normalized.push(char_val);
+
+            // Check if child exists using bitmask
+            let node = unsafe { self.nodes.get_unchecked(current_idx) };
+            if (node.children_mask & (1 << bit_idx)) == 0 {
+                let new_node_idx = self.nodes.len() as u32;
+                self.nodes.push(Node::new(char_val));
+
+                // Update parent
+                let node = unsafe { self.nodes.get_unchecked_mut(current_idx) };
+                node.children_mask |= 1 << bit_idx;
+                unsafe {
+                    *node.children_indices.get_unchecked_mut(bit_idx) = new_node_idx;
+                }
+
+                current_idx = new_node_idx as usize;
+            } else {
+                current_idx = unsafe { *node.children_indices.get_unchecked(bit_idx) as usize };
+            }
+        }
+
+        unsafe {
+            self.nodes.get_unchecked_mut(current_idx).end_of_word = true;
+        }
+
+        let mut hasher = GxHasher::with_seed(SEED);
+        hasher.write(&normalized);
+        self.bloom_filter.insert_hash(hasher.finish());
     }
 
     pub fn contains(&self, word: &str) -> bool {
-        // Bloom Filter is usually faster than a full Trie walk for non-members
-        if !self.bloom_filter.contains(word) {
+        let bytes = word.as_bytes();
+        let mut stack_buf = [0u8; 64];
+        let normalized = if bytes.len() <= 64 {
+            &mut stack_buf[..bytes.len()]
+        } else {
+            return self.contains_slow(word);
+        };
+
+        for (i, &b) in bytes.iter().enumerate() {
+            let bit_idx = unsafe { *CHAR_TO_BIT.get_unchecked(b as usize) as usize };
+            if bit_idx == 255 {
+                return false;
+            }
+            normalized[i] = b.to_ascii_lowercase();
+        }
+
+        let mut hasher = GxHasher::with_seed(SEED);
+        hasher.write(normalized);
+        if !self.bloom_filter.contains_hash(hasher.finish()) {
             return false;
         }
 
         let mut current_idx = 0;
-        for &b in word.as_bytes() {
-            let char_val = b.to_ascii_lowercase();
+        for &mut char_val in normalized {
             let bit_idx = (char_val - b'a') as usize;
 
-            let node = &self.nodes[current_idx];
+            let node = unsafe { self.nodes.get_unchecked(current_idx) };
             if (node.children_mask & (1 << bit_idx)) == 0 {
                 return false;
             }
-            current_idx = node.children_indices[bit_idx] as usize;
+            current_idx = unsafe { *node.children_indices.get_unchecked(bit_idx) as usize };
         }
 
-        self.nodes[current_idx].end_of_word
+        unsafe { self.nodes.get_unchecked(current_idx).end_of_word }
+    }
+
+    #[inline(never)]
+    fn contains_slow(&self, word: &str) -> bool {
+        let mut normalized = Vec::with_capacity(word.len());
+        for &b in word.as_bytes() {
+            let bit_idx = unsafe { *CHAR_TO_BIT.get_unchecked(b as usize) as usize };
+            if bit_idx == 255 {
+                return false;
+            }
+            normalized.push(b.to_ascii_lowercase());
+        }
+
+        let mut hasher = GxHasher::with_seed(SEED);
+        hasher.write(&normalized);
+        if !self.bloom_filter.contains_hash(hasher.finish()) {
+            return false;
+        }
+
+        let mut current_idx = 0;
+        for &char_val in &normalized {
+            let bit_idx = (char_val - b'a') as usize;
+
+            let node = unsafe { self.nodes.get_unchecked(current_idx) };
+            if (node.children_mask & (1 << bit_idx)) == 0 {
+                return false;
+            }
+            current_idx = unsafe { *node.children_indices.get_unchecked(bit_idx) as usize };
+        }
+
+        unsafe { self.nodes.get_unchecked(current_idx).end_of_word }
     }
 
     pub fn print(&self) {
@@ -118,28 +242,29 @@ impl Trie {
     }
 
     pub fn words_with_prefix(&self, prefix: &str) -> Vec<String> {
-        let mut current_idx = 0; // Start at root
+        let mut current_idx = 0;
         let bytes = prefix.as_bytes();
 
-        // 1. Navigate to the end of the prefix
+        let mut normalized_prefix = Vec::with_capacity(bytes.len());
         for &b in bytes {
-            let char_val = b.to_ascii_lowercase();
-            let bit_idx = (char_val - b'a') as usize;
-
-            let node = &self.nodes[current_idx];
-            // Use the bitmask to check if the path exists
-            if (node.children_mask & (1 << bit_idx)) == 0 {
-                return Vec::new(); // Prefix not found
+            let bit_idx = unsafe { *CHAR_TO_BIT.get_unchecked(b as usize) as usize };
+            if bit_idx == 255 {
+                return Vec::new();
             }
-            current_idx = node.children_indices[bit_idx] as usize;
+            normalized_prefix.push(b.to_ascii_lowercase());
         }
 
-        // 2. Collect all words starting from this node
-        let mut results = Vec::new();
-        // Pre-allocate the buffer with the prefix to avoid mid-search reallocations
-        let mut buffer = prefix.to_ascii_lowercase().into_bytes();
+        for &char_val in &normalized_prefix {
+            let bit_idx = (char_val - b'a') as usize;
+            let node = unsafe { self.nodes.get_unchecked(current_idx) };
+            if (node.children_mask & (1 << bit_idx)) == 0 {
+                return Vec::new();
+            }
+            current_idx = unsafe { *node.children_indices.get_unchecked(bit_idx) as usize };
+        }
 
-        self.collect_words_from_node(current_idx, &mut buffer, &mut results);
+        let mut results = Vec::new();
+        self.collect_words_from_node(current_idx, &mut normalized_prefix, &mut results);
         results
     }
 
@@ -149,24 +274,19 @@ impl Trie {
         buffer: &mut Vec<u8>,
         results: &mut Vec<String>,
     ) {
-        let node = &self.nodes[node_idx];
+        let node = unsafe { self.nodes.get_unchecked(node_idx) };
 
-        // If this node marks the end of a word, save the current buffer
         if node.end_of_word {
-            // Optimization: Use String::from_utf8_unchecked if you're 100% sure of ASCII
-            results.push(String::from_utf8_lossy(buffer).into_owned());
+            results.push(unsafe { String::from_utf8_unchecked(buffer.clone()) });
         }
 
-        // Iterate through all possible children (a-z)
         for i in 0..26 {
-            // Only recurse if the bitmask says a child exists
             if (node.children_mask & (1 << i)) != 0 {
-                let child_idx = node.children_indices[i] as usize;
+                let child_idx = unsafe { *node.children_indices.get_unchecked(i) as usize };
 
-                // Push the character for this branch
                 buffer.push(b'a' + i as u8);
                 self.collect_words_from_node(child_idx, buffer, results);
-                buffer.pop(); // Backtrack for the next branch
+                buffer.pop();
             }
         }
     }
@@ -208,5 +328,65 @@ mod tests {
 
         let unknowns = trie.words_with_prefix("unknown");
         assert!(unknowns.is_empty());
+    }
+
+    #[test]
+    fn test_trie_case_insensitivity() {
+        let mut trie = Trie::new(100, 3);
+        trie.insert("Hello");
+        assert!(trie.contains("hello"));
+        assert!(trie.contains("HELLO"));
+        assert!(trie.contains("Hello"));
+
+        let results = trie.words_with_prefix("HELL");
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0], "hello");
+    }
+
+    #[test]
+    fn test_trie_invalid_chars() {
+        let mut trie = Trie::new(100, 3);
+        // "abc 123" -> only "abc" should be inserted
+        trie.insert("abc 123");
+        assert!(trie.contains("abc"));
+        assert!(!trie.contains("abc 123"));
+        assert!(!trie.contains("123"));
+
+        // Searching with invalid chars should return false or empty
+        assert!(!trie.contains("abc!"));
+        assert!(trie.words_with_prefix("abc 1").is_empty());
+    }
+
+    #[test]
+    fn test_trie_contains_bloom_filter_hit_but_trie_miss() {
+        // Create a situation where bloom filter might have a false positive
+        // or just ensure the trie walk correctly returns false.
+        let mut trie = Trie::new(100, 3);
+        trie.insert("apple");
+
+        // "apply" shares "appl" with "apple", but 'y' is missing.
+        // Bloom filter might or might not hit, but Trie walk must return false.
+        assert!(!trie.contains("apply"));
+    }
+
+    #[test]
+    fn test_trie_long_strings() {
+        let mut trie = Trie::new(100, 3);
+        // String longer than 64 bytes to trigger *_slow paths
+        let long_word = "a".repeat(65);
+        let long_word_with_invalid = "a".repeat(64) + "1" + &"a".repeat(10);
+
+        trie.insert(&long_word);
+        assert!(trie.contains(&long_word));
+        assert!(!trie.contains(&"b".repeat(65)));
+
+        trie.insert(&long_word_with_invalid);
+        // normalization should have removed '1'
+        assert!(trie.contains(&"a".repeat(74)));
+        assert!(!trie.contains(&long_word_with_invalid));
+
+        let results = trie.words_with_prefix(&"a".repeat(60));
+        assert!(results.contains(&long_word));
+        assert!(results.contains(&"a".repeat(74)));
     }
 }
