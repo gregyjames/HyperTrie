@@ -2,7 +2,7 @@ use bit_vec::BitVec;
 use gxhash::GxHasher;
 use std::hash::Hasher;
 
-const SEED: i64 = 1846279233212321312;
+pub(crate) const SEED: i64 = 1846279233212321312;
 
 pub struct BloomFilter {
     bit_array: BitVec,
@@ -21,6 +21,10 @@ impl BloomFilter {
 
     pub fn insert(&mut self, item: &str) {
         let h1 = self.get_base_hash(item);
+        self.insert_hash(h1);
+    }
+
+    pub fn insert_hash(&mut self, h1: u64) {
         let h2 = h1.wrapping_mul(0x9e3779b97f4a7c15);
         let mut final_hash = h1;
         let size_mask = self.size - 1;
@@ -34,6 +38,10 @@ impl BloomFilter {
 
     pub fn contains(&self, item: &str) -> bool {
         let h1 = self.get_base_hash(item);
+        self.contains_hash(h1)
+    }
+
+    pub fn contains_hash(&self, h1: u64) -> bool {
         let h2 = h1.wrapping_mul(0x9e3779b97f4a7c15);
         let mut final_hash = h1;
         let size_mask = self.size - 1;
