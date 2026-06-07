@@ -44,7 +44,6 @@ impl BloomFilter {
         }
         true // Maybe in the set (false positives possible)
     }
-
 }
 
 #[cfg(test)]
