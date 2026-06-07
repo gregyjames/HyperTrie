@@ -1,6 +1,4 @@
 use bit_vec::BitVec;
-use gxhash::GxHasher;
-use std::hash::Hasher;
 
 pub(crate) const SEED: i64 = 1846279233212321312;
 
@@ -19,11 +17,6 @@ impl BloomFilter {
         }
     }
 
-    pub fn insert(&mut self, item: &str) {
-        let h1 = self.get_base_hash(item);
-        self.insert_hash(h1);
-    }
-
     pub fn insert_hash(&mut self, h1: u64) {
         let h2 = h1.wrapping_mul(0x9e3779b97f4a7c15);
         let mut final_hash = h1;
@@ -34,11 +27,6 @@ impl BloomFilter {
             self.bit_array.set(index, true);
             final_hash = final_hash.wrapping_add(h2);
         }
-    }
-
-    pub fn contains(&self, item: &str) -> bool {
-        let h1 = self.get_base_hash(item);
-        self.contains_hash(h1)
     }
 
     pub fn contains_hash(&self, h1: u64) -> bool {
@@ -57,20 +45,22 @@ impl BloomFilter {
         true // Maybe in the set (false positives possible)
     }
 
-    #[inline(always)]
-    fn get_base_hash(&self, item: &str) -> u64 {
-        let mut hasher = GxHasher::with_seed(SEED);
-        hasher.write(item.as_bytes());
-        hasher.finish()
-    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use gxhash::GxHasher;
+    use std::hash::Hasher;
 
     fn make_filter(size: usize, num_hashes: usize) -> BloomFilter {
         BloomFilter::new(size, num_hashes)
+    }
+
+    fn hash(item: &str) -> u64 {
+        let mut hasher = GxHasher::with_seed(SEED);
+        hasher.write(item.as_bytes());
+        hasher.finish()
     }
 
     // --- construction ---
@@ -78,16 +68,16 @@ mod tests {
     #[test]
     fn test_new_contains_nothing() {
         let bf = make_filter(1024, 3);
-        assert!(!bf.contains("hello"));
-        assert!(!bf.contains("world"));
+        assert!(!bf.contains_hash(hash("hello")));
+        assert!(!bf.contains_hash(hash("world")));
     }
 
     #[test]
     fn test_new_size_one() {
         // degenerate but shouldn't panic
         let mut bf = make_filter(1, 1);
-        bf.insert("x");
-        assert!(bf.contains("x"));
+        bf.insert_hash(hash("x"));
+        assert!(bf.contains_hash(hash("x")));
     }
 
     // --- insert / contains ---
@@ -95,8 +85,8 @@ mod tests {
     #[test]
     fn test_inserted_item_is_found() {
         let mut bf = make_filter(1024, 3);
-        bf.insert("hello");
-        assert!(bf.contains("hello"));
+        bf.insert_hash(hash("hello"));
+        assert!(bf.contains_hash(hash("hello")));
     }
 
     #[test]
@@ -104,10 +94,10 @@ mod tests {
         let mut bf = make_filter(1024, 3);
         let words = ["apple", "banana", "cherry", "date", "elderberry"];
         for w in &words {
-            bf.insert(w);
+            bf.insert_hash(hash(w));
         }
         for w in &words {
-            assert!(bf.contains(w), "expected '{w}' to be found");
+            assert!(bf.contains_hash(hash(w)), "expected '{w}' to be found");
         }
     }
 
@@ -116,58 +106,58 @@ mod tests {
         // With a large filter and few items, false positives should not occur
         // for these specific values — if this ever flakes, increase size.
         let mut bf = make_filter(8192, 4);
-        bf.insert("present");
-        assert!(!bf.contains("absent"));
-        assert!(!bf.contains("also_absent"));
+        bf.insert_hash(hash("present"));
+        assert!(!bf.contains_hash(hash("absent")));
+        assert!(!bf.contains_hash(hash("also_absent")));
     }
 
     #[test]
     fn test_insert_empty_string() {
         let mut bf = make_filter(1024, 3);
-        bf.insert("");
-        assert!(bf.contains(""));
+        bf.insert_hash(hash(""));
+        assert!(bf.contains_hash(hash("")));
     }
 
     #[test]
     fn test_empty_string_not_present_by_default() {
         let bf = make_filter(1024, 3);
-        assert!(!bf.contains(""));
+        assert!(!bf.contains_hash(hash("")));
     }
 
     #[test]
     fn test_insert_is_idempotent() {
         let mut bf = make_filter(1024, 3);
-        bf.insert("repeat");
-        bf.insert("repeat");
-        assert!(bf.contains("repeat"));
+        bf.insert_hash(hash("repeat"));
+        bf.insert_hash(hash("repeat"));
+        assert!(bf.contains_hash(hash("repeat")));
     }
 
     #[test]
     fn test_unicode_item() {
         let mut bf = make_filter(1024, 3);
-        bf.insert("héllo");
-        bf.insert("日本語");
-        assert!(bf.contains("héllo"));
-        assert!(bf.contains("日本語"));
-        assert!(!bf.contains("hello")); // ASCII variant is distinct
+        bf.insert_hash(hash("héllo"));
+        bf.insert_hash(hash("日本語"));
+        assert!(bf.contains_hash(hash("héllo")));
+        assert!(bf.contains_hash(hash("日本語")));
+        assert!(!bf.contains_hash(hash("hello"))); // ASCII variant is distinct
     }
 
     #[test]
     fn test_case_sensitive() {
         let mut bf = make_filter(1024, 3);
-        bf.insert("Hello");
-        assert!(bf.contains("Hello"));
-        assert!(!bf.contains("hello"));
-        assert!(!bf.contains("HELLO"));
+        bf.insert_hash(hash("Hello"));
+        assert!(bf.contains_hash(hash("Hello")));
+        assert!(!bf.contains_hash(hash("hello")));
+        assert!(!bf.contains_hash(hash("HELLO")));
     }
 
     #[test]
     fn test_similar_strings_are_distinct() {
         let mut bf = make_filter(8192, 4);
-        bf.insert("abc");
-        assert!(!bf.contains("ab"));
-        assert!(!bf.contains("abcd"));
-        assert!(!bf.contains("ABC"));
+        bf.insert_hash(hash("abc"));
+        assert!(!bf.contains_hash(hash("ab")));
+        assert!(!bf.contains_hash(hash("abcd")));
+        assert!(!bf.contains_hash(hash("ABC")));
     }
 
     // --- num_hashes boundary ---
@@ -175,23 +165,23 @@ mod tests {
     #[test]
     fn test_single_hash() {
         let mut bf = make_filter(1024, 1);
-        bf.insert("one_hash");
-        assert!(bf.contains("one_hash"));
-        assert!(!bf.contains("different"));
+        bf.insert_hash(hash("one_hash"));
+        assert!(bf.contains_hash(hash("one_hash")));
+        assert!(!bf.contains_hash(hash("different")));
     }
 
     #[test]
     fn test_many_hashes() {
         let mut bf = make_filter(4096, 10);
-        bf.insert("many_hashes");
-        assert!(bf.contains("many_hashes"));
+        bf.insert_hash(hash("many_hashes"));
+        assert!(bf.contains_hash(hash("many_hashes")));
     }
 
     // --- hash_item determinism ---
     /// Helper to collect hashes for testing since we removed hash_item from the API
     fn get_hashes(bf: &BloomFilter, item: &str) -> Vec<usize> {
         let mut hashes = Vec::new();
-        let h1 = bf.get_base_hash(item);
+        let h1 = hash(item);
         let h2 = h1.wrapping_mul(0x9e3779b97f4a7c15);
         let mut final_hash = h1;
 
@@ -237,11 +227,11 @@ mod tests {
         // that were never inserted. FP rate should be well under 1%.
         let mut bf = make_filter(16384, 4);
         for i in 0..100u32 {
-            bf.insert(&format!("inserted_{i}"));
+            bf.insert_hash(hash(&format!("inserted_{i}")));
         }
         let mut false_positives = 0;
         for i in 0..1000u32 {
-            if bf.contains(&format!("probe_{i}")) {
+            if bf.contains_hash(hash(&format!("probe_{i}"))) {
                 false_positives += 1;
             }
         }
