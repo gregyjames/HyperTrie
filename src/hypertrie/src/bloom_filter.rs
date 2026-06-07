@@ -55,7 +55,6 @@ impl BloomFilter {
         hasher.write(item.as_bytes());
         hasher.finish()
     }
-
 }
 
 #[cfg(test)]
