@@ -2,6 +2,17 @@ use crate::bloom_filter::BloomFilter;
 
 const ALPHABET_SIZE: usize = 26;
 
+static CHAR_TO_BIT: [u8; 256] = {
+    let mut table = [255u8; 256];
+    let mut i = 0;
+    while i < 26 {
+        table[(b'a' + i as u8) as usize] = i as u8;
+        table[(b'A' + i as u8) as usize] = i as u8;
+        i += 1;
+    }
+    table
+};
+
 pub struct Node {
     pub letter: u8,
     pub children_mask: u32,
@@ -31,7 +42,7 @@ impl Trie {
             .checked_next_power_of_two()
             .expect("Next power of 2 usize overflow");
 
-        let mut nodes = Vec::with_capacity(1024);
+        let mut nodes = Vec::with_capacity(size);
         nodes.push(Node::new(0));
 
         Trie {
@@ -45,26 +56,33 @@ impl Trie {
         let bytes = word.as_bytes();
 
         for &b in bytes {
-            let char_val = b.to_ascii_lowercase();
-            let bit_idx = (char_val - b'a') as usize;
+            let bit_idx = unsafe { *CHAR_TO_BIT.get_unchecked(b as usize) as usize };
+            if bit_idx == 255 {
+                continue;
+            }
 
             // Check if child exists using bitmask
-            if (self.nodes[current_idx].children_mask & (1 << bit_idx)) == 0 {
+            let node = unsafe { self.nodes.get_unchecked(current_idx) };
+            if (node.children_mask & (1 << bit_idx)) == 0 {
                 let new_node_idx = self.nodes.len() as u32;
-                self.nodes.push(Node::new(char_val));
+                self.nodes.push(Node::new(b.to_ascii_lowercase()));
 
                 // Update parent
-                let node = &mut self.nodes[current_idx];
+                let node = unsafe { self.nodes.get_unchecked_mut(current_idx) };
                 node.children_mask |= 1 << bit_idx;
-                node.children_indices[bit_idx] = new_node_idx;
+                unsafe {
+                    *node.children_indices.get_unchecked_mut(bit_idx) = new_node_idx;
+                }
 
                 current_idx = new_node_idx as usize;
             } else {
-                current_idx = self.nodes[current_idx].children_indices[bit_idx] as usize;
+                current_idx = unsafe { *node.children_indices.get_unchecked(bit_idx) as usize };
             }
         }
 
-        self.nodes[current_idx].end_of_word = true;
+        unsafe {
+            self.nodes.get_unchecked_mut(current_idx).end_of_word = true;
+        }
         self.bloom_filter.insert(word);
     }
 
@@ -76,17 +94,19 @@ impl Trie {
 
         let mut current_idx = 0;
         for &b in word.as_bytes() {
-            let char_val = b.to_ascii_lowercase();
-            let bit_idx = (char_val - b'a') as usize;
+            let bit_idx = unsafe { *CHAR_TO_BIT.get_unchecked(b as usize) as usize };
+            if bit_idx == 255 {
+                return false;
+            }
 
-            let node = &self.nodes[current_idx];
+            let node = unsafe { self.nodes.get_unchecked(current_idx) };
             if (node.children_mask & (1 << bit_idx)) == 0 {
                 return false;
             }
-            current_idx = node.children_indices[bit_idx] as usize;
+            current_idx = unsafe { *node.children_indices.get_unchecked(bit_idx) as usize };
         }
 
-        self.nodes[current_idx].end_of_word
+        unsafe { self.nodes.get_unchecked(current_idx).end_of_word }
     }
 
     pub fn print(&self) {
@@ -123,15 +143,17 @@ impl Trie {
 
         // 1. Navigate to the end of the prefix
         for &b in bytes {
-            let char_val = b.to_ascii_lowercase();
-            let bit_idx = (char_val - b'a') as usize;
+            let bit_idx = unsafe { *CHAR_TO_BIT.get_unchecked(b as usize) as usize };
+            if bit_idx == 255 {
+                return Vec::new();
+            }
 
-            let node = &self.nodes[current_idx];
+            let node = unsafe { self.nodes.get_unchecked(current_idx) };
             // Use the bitmask to check if the path exists
             if (node.children_mask & (1 << bit_idx)) == 0 {
                 return Vec::new(); // Prefix not found
             }
-            current_idx = node.children_indices[bit_idx] as usize;
+            current_idx = unsafe { *node.children_indices.get_unchecked(bit_idx) as usize };
         }
 
         // 2. Collect all words starting from this node
