@@ -21,18 +21,20 @@ impl BloomFilter {
 
     pub fn insert(&mut self, item: &str) {
         let base_hash = self.get_base_hash(item);
+        let hash2 = base_hash.wrapping_mul(0x9e3779b97f4a7c15);
         for i in 0..self.num_hashes {
-            let final_hash = self.derive_hash(base_hash, i);
-            let index = final_hash & (self.size - 1);
+            let final_hash = base_hash.wrapping_add((i as u64).wrapping_mul(hash2));
+            let index = (final_hash as usize) & (self.size - 1);
             self.bit_array.set(index, true);
         }
     }
 
     pub fn contains(&self, item: &str) -> bool {
         let base_hash = self.get_base_hash(item);
+        let hash2 = base_hash.wrapping_mul(0x9e3779b97f4a7c15);
         for i in 0..self.num_hashes {
-            let final_hash = self.derive_hash(base_hash, i);
-            let index = final_hash & (self.size - 1);
+            let final_hash = base_hash.wrapping_add((i as u64).wrapping_mul(hash2));
+            let index = (final_hash as usize) & (self.size - 1);
 
             if !self.bit_array.get(index).unwrap_or(false) {
                 return false;
@@ -46,16 +48,6 @@ impl BloomFilter {
         let mut hasher = GxHasher::with_seed(SEED);
         hasher.write(item.as_bytes());
         hasher.finish()
-    }
-
-    /// Derive subsequent hashes from the base hash + index
-    /// This is significantly faster than hashing the string again
-    #[inline(always)]
-    fn derive_hash(&self, base_hash: u64, index: usize) -> usize {
-        // Enhanced Double Hashing: hash_i = hash1 + i * hash2
-        // We use the base_hash as hash1, and a secondary hash of base_hash as hash2
-        let hash2 = base_hash.wrapping_mul(0x9e3779b97f4a7c15);
-        base_hash.wrapping_add((index as u64).wrapping_mul(hash2)) as usize
     }
 }
 
@@ -186,9 +178,10 @@ mod tests {
     fn get_hashes(bf: &BloomFilter, item: &str) -> Vec<usize> {
         let mut hashes = Vec::new();
         let base_hash = bf.get_base_hash(item);
+        let hash2 = base_hash.wrapping_mul(0x9e3779b97f4a7c15);
         for i in 0..bf.num_hashes {
-            let final_hash = bf.derive_hash(base_hash, i);
-            hashes.push(final_hash % bf.size);
+            let final_hash = base_hash.wrapping_add((i as u64).wrapping_mul(hash2));
+            hashes.push((final_hash as usize) & (bf.size - 1));
         }
         hashes
     }

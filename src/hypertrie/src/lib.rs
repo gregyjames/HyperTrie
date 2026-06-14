@@ -148,17 +148,21 @@ pub unsafe extern "C" fn trie_free_words(words: *mut *mut c_char, len: usize) {
 pub unsafe extern "C" fn trie_bulk_insert(
     trie: *mut Trie,
     words: *const *const c_char,
+    word_lens: *const usize,
     len: usize,
 ) {
-    if trie.is_null() || words.is_null() || len == 0 {
+    if trie.is_null() || words.is_null() || word_lens.is_null() || len == 0 {
         return;
     }
     unsafe {
-        let slice = slice::from_raw_parts(words, len);
+        let word_slice = slice::from_raw_parts(words, len);
+        let len_slice = slice::from_raw_parts(word_lens, len);
         let trie = &mut *trie;
-        for &word_ptr in slice {
-            if !word_ptr.is_null() {
-                let word = std::str::from_utf8_unchecked(CStr::from_ptr(word_ptr).to_bytes());
+        for i in 0..len {
+            let word_ptr = word_slice[i];
+            let word_len = len_slice[i];
+            if !word_ptr.is_null() && word_len > 0 {
+                let word = std::str::from_utf8_unchecked(slice::from_raw_parts(word_ptr as *const u8, word_len));
                 trie.insert(word);
             }
         }
@@ -264,8 +268,12 @@ mod tests {
         let t = make_trie();
         let words = [cstr("foo"), cstr("bar"), cstr("baz")];
         let ptrs: Vec<*const c_char> = words.iter().map(|s| s.as_ptr()).collect();
+        let lens: Vec<usize> = words
+            .iter()
+            .map(|s| s.to_bytes_with_nul().len() - 1)
+            .collect();
         unsafe {
-            trie_bulk_insert(t, ptrs.as_ptr(), ptrs.len());
+            trie_bulk_insert(t, ptrs.as_ptr(), lens.as_ptr(), ptrs.len());
             for w in &words {
                 assert!(trie_contains(t, w.as_ptr()));
             }
@@ -277,13 +285,14 @@ mod tests {
     fn test_bulk_insert_null_trie_is_safe() {
         let word = cstr("foo");
         let ptrs = [word.as_ptr()];
-        unsafe { trie_bulk_insert(ptr::null_mut(), ptrs.as_ptr(), 1) };
+        let lens = [3usize];
+        unsafe { trie_bulk_insert(ptr::null_mut(), ptrs.as_ptr(), lens.as_ptr(), 1) };
     }
 
     #[test]
     fn test_bulk_insert_null_words_is_safe() {
         let t = make_trie();
-        unsafe { trie_bulk_insert(t, ptr::null(), 0) };
+        unsafe { trie_bulk_insert(t, ptr::null(), ptr::null(), 0) };
         unsafe { trie_free(t) };
     }
 
@@ -292,7 +301,8 @@ mod tests {
         let t = make_trie();
         let word = cstr("foo");
         let ptrs = [word.as_ptr()];
-        unsafe { trie_bulk_insert(t, ptrs.as_ptr(), 0) };
+        let lens = [3usize];
+        unsafe { trie_bulk_insert(t, ptrs.as_ptr(), lens.as_ptr(), 0) };
         unsafe { trie_free(t) };
     }
 
@@ -308,8 +318,12 @@ mod tests {
             cstr("banana"),
         ];
         let ptrs: Vec<*const c_char> = words.iter().map(|s| s.as_ptr()).collect();
+        let lens: Vec<usize> = words
+            .iter()
+            .map(|s| s.to_bytes_with_nul().len() - 1)
+            .collect();
         unsafe {
-            trie_bulk_insert(t, ptrs.as_ptr(), ptrs.len());
+            trie_bulk_insert(t, ptrs.as_ptr(), lens.as_ptr(), ptrs.len());
 
             let prefix = cstr("app");
             let mut out_len: usize = 0;
