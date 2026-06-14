@@ -162,7 +162,10 @@ pub unsafe extern "C" fn trie_bulk_insert(
             let word_ptr = word_slice[i];
             let word_len = len_slice[i];
             if !word_ptr.is_null() && word_len > 0 {
-                let word = std::str::from_utf8_unchecked(slice::from_raw_parts(word_ptr as *const u8, word_len));
+                let word = std::str::from_utf8_unchecked(slice::from_raw_parts(
+                    word_ptr as *const u8,
+                    word_len,
+                ));
                 trie.insert(word);
             }
         }
