@@ -42,7 +42,7 @@ public sealed class TrieNative(int size, int numHashes = 5) : IDisposable
         out UIntPtr out_len);
 
     [DllImport(DLL_NAME, CallingConvention = CallingConvention.Cdecl)]
-    private static extern void trie_bulk_insert(IntPtr trie, IntPtr words, UIntPtr len);
+    private static extern void trie_bulk_insert(IntPtr trie, IntPtr words, IntPtr word_lens, UIntPtr len);
     /// <summary>
     /// Inserts a new word into the TrieNative object.
     /// </summary>
@@ -134,6 +134,7 @@ public sealed class TrieNative(int size, int numHashes = 5) : IDisposable
 
         IntPtr bigBuffer = Marshal.AllocHGlobal((IntPtr)totalByteCapacity);
         IntPtr[] ptrArray = ArrayPool<IntPtr>.Shared.Rent(count);
+        UIntPtr[] lenArray = ArrayPool<UIntPtr>.Shared.Rent(count);
 
 
         try
@@ -151,6 +152,8 @@ public sealed class TrieNative(int size, int numHashes = 5) : IDisposable
                 string s = span[i];
                 if (string.IsNullOrEmpty(s))
                 {
+                    ptrArray[i] = IntPtr.Zero;
+                    lenArray[i] = UIntPtr.Zero;
                     continue;
                 }
 
@@ -159,6 +162,7 @@ public sealed class TrieNative(int size, int numHashes = 5) : IDisposable
                 fixed (char* pStr = s)
                 {
                     int bytesWritten = Encoding.UTF8.GetBytes(pStr, s.Length, currentDest, totalByteCapacity);
+                    lenArray[i] = (UIntPtr)bytesWritten;
 
                     currentDest += bytesWritten;
                     *currentDest = 0; // Null terminator
@@ -167,14 +171,16 @@ public sealed class TrieNative(int size, int numHashes = 5) : IDisposable
             }
 
             fixed (IntPtr* pPtrs = ptrArray)
+            fixed (UIntPtr* pLens = lenArray)
             {
-                trie_bulk_insert(_handle, (IntPtr)pPtrs, (UIntPtr)count);
+                trie_bulk_insert(_handle, (IntPtr)pPtrs, (IntPtr)pLens, (UIntPtr)count);
             }
         }
         finally
         {
             Marshal.FreeHGlobal(bigBuffer);
             ArrayPool<IntPtr>.Shared.Return(ptrArray);
+            ArrayPool<UIntPtr>.Shared.Return(lenArray);
         }
     }
 
