@@ -1,4 +1,4 @@
-use std::ffi::{CStr, CString};
+use std::ffi::CString;
 use std::os::raw::c_char;
 use std::ptr;
 use std::slice;
@@ -34,15 +34,21 @@ pub unsafe extern "C" fn trie_free(trie: *mut Trie) {
 /// This function is unsafe because it dereferences raw pointers.
 /// The caller must ensure that both `trie` and `word` are valid pointers.
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn trie_insert(trie: *mut Trie, word: *const c_char) {
-    if trie.is_null() || word.is_null() {
+pub unsafe extern "C" fn trie_insert(trie: *mut Trie, word: *const u8, len: usize) {
+    if trie.is_null() {
         return;
     }
     unsafe {
-        let c_str = CStr::from_ptr(word);
-        if let Ok(word_str) = c_str.to_str() {
-            (*trie).insert(word_str);
-        }
+        let word_str = if len == 0 {
+            ""
+        } else {
+            if word.is_null() {
+                return;
+            }
+            let word_slice = slice::from_raw_parts(word, len);
+            std::str::from_utf8_unchecked(word_slice)
+        };
+        (*trie).insert(word_str);
     }
 }
 
@@ -51,16 +57,21 @@ pub unsafe extern "C" fn trie_insert(trie: *mut Trie, word: *const c_char) {
 /// This function is unsafe because it dereferences raw pointers.
 /// The caller must ensure that both `trie` and `word` are valid pointers.
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn trie_contains(trie: *const Trie, word: *const c_char) -> bool {
-    if trie.is_null() || word.is_null() {
+pub unsafe extern "C" fn trie_contains(trie: *const Trie, word: *const u8, len: usize) -> bool {
+    if trie.is_null() {
         return false;
     }
     unsafe {
-        let c_str = CStr::from_ptr(word);
-        match c_str.to_str() {
-            Ok(word_str) => (*trie).contains(word_str),
-            Err(_) => false,
-        }
+        let word_str = if len == 0 {
+            ""
+        } else {
+            if word.is_null() {
+                return false;
+            }
+            let word_slice = slice::from_raw_parts(word, len);
+            std::str::from_utf8_unchecked(word_slice)
+        };
+        (*trie).contains(word_str)
     }
 }
 
@@ -84,19 +95,25 @@ pub unsafe extern "C" fn trie_debug_print(trie: *const Trie) {
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn trie_words_with_prefix(
     trie: *const Trie,
-    prefix: *const c_char,
+    prefix: *const u8,
+    len: usize,
     out_len: *mut usize,
 ) -> *mut *mut c_char {
-    if trie.is_null() || prefix.is_null() || out_len.is_null() {
+    if trie.is_null() || out_len.is_null() {
         return ptr::null_mut();
     }
 
     unsafe {
-        let c_str = CStr::from_ptr(prefix);
-        let words = match c_str.to_str() {
-            Ok(prefix_str) => (*trie).words_with_prefix(prefix_str),
-            Err(_) => Vec::new(),
+        let prefix_str = if len == 0 {
+            ""
+        } else {
+            if prefix.is_null() {
+                return ptr::null_mut();
+            }
+            let prefix_slice = slice::from_raw_parts(prefix, len);
+            std::str::from_utf8_unchecked(prefix_slice)
         };
+        let words = (*trie).words_with_prefix(prefix_str);
 
         *out_len = words.len();
         if words.is_empty() {
@@ -147,18 +164,27 @@ pub unsafe extern "C" fn trie_free_words(words: *mut *mut c_char, len: usize) {
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn trie_bulk_insert(
     trie: *mut Trie,
-    words: *const *const c_char,
+    words: *const *const u8,
+    lengths: *const usize,
     len: usize,
 ) {
-    if trie.is_null() || words.is_null() || len == 0 {
+    if trie.is_null() || words.is_null() || lengths.is_null() || len == 0 {
         return;
     }
     unsafe {
-        let slice = slice::from_raw_parts(words, len);
+        let word_ptrs = slice::from_raw_parts(words, len);
+        let word_lens = slice::from_raw_parts(lengths, len);
         let trie = &mut *trie;
-        for &word_ptr in slice {
+        for i in 0..len {
+            let word_ptr = word_ptrs[i];
+            let word_len = word_lens[i];
             if !word_ptr.is_null() {
-                let word = std::str::from_utf8_unchecked(CStr::from_ptr(word_ptr).to_bytes());
+                let word = if word_len == 0 {
+                    ""
+                } else {
+                    let word_slice = slice::from_raw_parts(word_ptr, word_len);
+                    std::str::from_utf8_unchecked(word_slice)
+                };
                 trie.insert(word);
             }
         }
@@ -168,15 +194,11 @@ pub unsafe extern "C" fn trie_bulk_insert(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::ffi::CString;
+    use std::ffi::CStr;
     use std::ptr;
 
     fn make_trie() -> *mut Trie {
         unsafe { trie_new(1024, 3) }
-    }
-
-    fn cstr(s: &str) -> CString {
-        CString::new(s).unwrap()
     }
 
     // --- trie_new / trie_free ---
@@ -198,10 +220,10 @@ mod tests {
     #[test]
     fn test_insert_and_contains() {
         let t = make_trie();
-        let word = cstr("hello");
+        let word = "hello";
         unsafe {
-            trie_insert(t, word.as_ptr());
-            assert!(trie_contains(t, word.as_ptr()));
+            trie_insert(t, word.as_ptr(), word.len());
+            assert!(trie_contains(t, word.as_ptr(), word.len()));
         }
         unsafe { trie_free(t) };
     }
@@ -209,37 +231,43 @@ mod tests {
     #[test]
     fn test_contains_missing_word_returns_false() {
         let t = make_trie();
-        let word = cstr("ghost");
+        let word = "ghost";
         unsafe {
-            assert!(!trie_contains(t, word.as_ptr()));
+            assert!(!trie_contains(t, word.as_ptr(), word.len()));
         }
         unsafe { trie_free(t) };
     }
 
     #[test]
     fn test_insert_null_trie_is_safe() {
-        let word = cstr("hello");
-        unsafe { trie_insert(ptr::null_mut(), word.as_ptr()) };
+        let word = "hello";
+        unsafe { trie_insert(ptr::null_mut(), word.as_ptr(), word.len()) };
     }
 
     #[test]
     fn test_insert_null_word_is_safe() {
         let t = make_trie();
-        unsafe { trie_insert(t, ptr::null()) };
+        unsafe {
+            trie_insert(t, ptr::null(), 0);
+            trie_insert(t, ptr::null(), 5); // null with non-zero len
+        };
         unsafe { trie_free(t) };
     }
 
     #[test]
     fn test_contains_null_trie_returns_false() {
-        let word = cstr("hello");
-        let result = unsafe { trie_contains(ptr::null(), word.as_ptr()) };
+        let word = "hello";
+        let result = unsafe { trie_contains(ptr::null(), word.as_ptr(), word.len()) };
         assert!(!result);
     }
 
     #[test]
     fn test_contains_null_word_returns_false() {
         let t = make_trie();
-        let result = unsafe { trie_contains(t, ptr::null()) };
+        let result = unsafe {
+            assert!(!trie_contains(t, ptr::null(), 0));
+            trie_contains(t, ptr::null(), 5) // null with non-zero len
+        };
         assert!(!result);
         unsafe { trie_free(t) };
     }
@@ -247,12 +275,12 @@ mod tests {
     #[test]
     fn test_insert_empty_string() {
         let t = make_trie();
-        let word = cstr("");
+        let word = "";
         unsafe {
-            trie_insert(t, word.as_ptr());
+            trie_insert(t, word.as_ptr(), word.len());
             // whether empty string is "found" is implementation-defined;
             // the important thing is it doesn't crash
-            let _ = trie_contains(t, word.as_ptr());
+            let _ = trie_contains(t, word.as_ptr(), word.len());
         }
         unsafe { trie_free(t) };
     }
@@ -262,12 +290,13 @@ mod tests {
     #[test]
     fn test_bulk_insert_and_contains() {
         let t = make_trie();
-        let words = [cstr("foo"), cstr("bar"), cstr("baz")];
-        let ptrs: Vec<*const c_char> = words.iter().map(|s| s.as_ptr()).collect();
+        let words = ["foo", "bar", "baz"];
+        let ptrs: Vec<*const u8> = words.iter().map(|s| s.as_ptr()).collect();
+        let lens: Vec<usize> = words.iter().map(|s| s.len()).collect();
         unsafe {
-            trie_bulk_insert(t, ptrs.as_ptr(), ptrs.len());
+            trie_bulk_insert(t, ptrs.as_ptr(), lens.as_ptr(), ptrs.len());
             for w in &words {
-                assert!(trie_contains(t, w.as_ptr()));
+                assert!(trie_contains(t, w.as_ptr(), w.len()));
             }
         }
         unsafe { trie_free(t) };
@@ -275,24 +304,43 @@ mod tests {
 
     #[test]
     fn test_bulk_insert_null_trie_is_safe() {
-        let word = cstr("foo");
+        let word = "foo";
         let ptrs = [word.as_ptr()];
-        unsafe { trie_bulk_insert(ptr::null_mut(), ptrs.as_ptr(), 1) };
+        let lens = [word.len()];
+        unsafe { trie_bulk_insert(ptr::null_mut(), ptrs.as_ptr(), lens.as_ptr(), 1) };
     }
 
     #[test]
     fn test_bulk_insert_null_words_is_safe() {
         let t = make_trie();
-        unsafe { trie_bulk_insert(t, ptr::null(), 0) };
+        unsafe {
+            trie_bulk_insert(t, ptr::null(), ptr::null(), 0);
+            trie_bulk_insert(t, ["foo".as_ptr()].as_ptr(), ptr::null(), 1); // null lengths
+        };
+        unsafe { trie_free(t) };
+    }
+
+    #[test]
+    fn test_bulk_insert_with_null_and_empty_entries() {
+        let t = make_trie();
+        let words = ["foo", "", "bar"];
+        let mut ptrs = [words[0].as_ptr(), ptr::null(), words[2].as_ptr()];
+        let lens = [3, 0, 3];
+        unsafe {
+            trie_bulk_insert(t, ptrs.as_mut_ptr(), lens.as_ptr(), 3);
+            assert!(trie_contains(t, words[0].as_ptr(), 3));
+            assert!(trie_contains(t, words[2].as_ptr(), 3));
+        }
         unsafe { trie_free(t) };
     }
 
     #[test]
     fn test_bulk_insert_zero_len_is_safe() {
         let t = make_trie();
-        let word = cstr("foo");
+        let word = "foo";
         let ptrs = [word.as_ptr()];
-        unsafe { trie_bulk_insert(t, ptrs.as_ptr(), 0) };
+        let lens = [word.len()];
+        unsafe { trie_bulk_insert(t, ptrs.as_ptr(), lens.as_ptr(), 0) };
         unsafe { trie_free(t) };
     }
 
@@ -301,19 +349,15 @@ mod tests {
     #[test]
     fn test_words_with_prefix_basic() {
         let t = make_trie();
-        let words = [
-            cstr("apple"),
-            cstr("application"),
-            cstr("apply"),
-            cstr("banana"),
-        ];
-        let ptrs: Vec<*const c_char> = words.iter().map(|s| s.as_ptr()).collect();
+        let words = ["apple", "application", "apply", "banana"];
+        let ptrs: Vec<*const u8> = words.iter().map(|s| s.as_ptr()).collect();
+        let lens: Vec<usize> = words.iter().map(|s| s.len()).collect();
         unsafe {
-            trie_bulk_insert(t, ptrs.as_ptr(), ptrs.len());
+            trie_bulk_insert(t, ptrs.as_ptr(), lens.as_ptr(), ptrs.len());
 
-            let prefix = cstr("app");
+            let prefix = "app";
             let mut out_len: usize = 0;
-            let result = trie_words_with_prefix(t, prefix.as_ptr(), &mut out_len);
+            let result = trie_words_with_prefix(t, prefix.as_ptr(), prefix.len(), &mut out_len);
 
             assert!(!result.is_null());
             assert_eq!(out_len, 3);
@@ -337,13 +381,13 @@ mod tests {
     #[test]
     fn test_words_with_prefix_no_match_returns_null() {
         let t = make_trie();
-        let word = cstr("hello");
+        let word = "hello";
         unsafe {
-            trie_insert(t, word.as_ptr());
+            trie_insert(t, word.as_ptr(), word.len());
 
-            let prefix = cstr("xyz");
+            let prefix = "xyz";
             let mut out_len: usize = 0;
-            let result = trie_words_with_prefix(t, prefix.as_ptr(), &mut out_len);
+            let result = trie_words_with_prefix(t, prefix.as_ptr(), prefix.len(), &mut out_len);
 
             assert!(result.is_null());
             assert_eq!(out_len, 0);
@@ -353,9 +397,11 @@ mod tests {
 
     #[test]
     fn test_words_with_prefix_null_trie_returns_null() {
-        let prefix = cstr("app");
+        let prefix = "app";
         let mut out_len: usize = 0;
-        let result = unsafe { trie_words_with_prefix(ptr::null(), prefix.as_ptr(), &mut out_len) };
+        let result = unsafe {
+            trie_words_with_prefix(ptr::null(), prefix.as_ptr(), prefix.len(), &mut out_len)
+        };
         assert!(result.is_null());
     }
 
@@ -363,16 +409,28 @@ mod tests {
     fn test_words_with_prefix_null_prefix_returns_null() {
         let t = make_trie();
         let mut out_len: usize = 0;
-        let result = unsafe { trie_words_with_prefix(t, ptr::null(), &mut out_len) };
+        let result = unsafe {
+            assert!(trie_words_with_prefix(t, ptr::null(), 0, &mut out_len).is_null());
+            trie_words_with_prefix(t, ptr::null(), 5, &mut out_len) // null with non-zero len
+        };
         assert!(result.is_null());
         unsafe { trie_free(t) };
     }
 
     #[test]
+    fn test_words_with_prefix_with_interior_null() {
+        let mut trie = Trie::new(100, 3);
+        trie.insert("a\0b"); // Interior null is ignored by CHAR_TO_BIT, becomes "ab"
+        let words = trie.words_with_prefix("a");
+        assert!(words.contains(&"ab".to_string()));
+    }
+
+    #[test]
     fn test_words_with_prefix_null_out_len_returns_null() {
         let t = make_trie();
-        let prefix = cstr("app");
-        let result = unsafe { trie_words_with_prefix(t, prefix.as_ptr(), ptr::null_mut()) };
+        let prefix = "app";
+        let result =
+            unsafe { trie_words_with_prefix(t, prefix.as_ptr(), prefix.len(), ptr::null_mut()) };
         assert!(result.is_null());
         unsafe { trie_free(t) };
     }
@@ -387,12 +445,12 @@ mod tests {
     #[test]
     fn test_free_words_zero_len_is_safe() {
         let t = make_trie();
-        let word = cstr("hello");
+        let word = "hello";
         unsafe {
-            trie_insert(t, word.as_ptr());
-            let prefix = cstr("hel");
+            trie_insert(t, word.as_ptr(), word.len());
+            let prefix = "hel";
             let mut out_len: usize = 0;
-            let result = trie_words_with_prefix(t, prefix.as_ptr(), &mut out_len);
+            let result = trie_words_with_prefix(t, prefix.as_ptr(), prefix.len(), &mut out_len);
             // free with len=0 should be safe even with a non-null pointer
             trie_free_words(result, 0);
         }
@@ -409,9 +467,9 @@ mod tests {
     #[test]
     fn test_debug_print_does_not_crash() {
         let t = make_trie();
-        let word = cstr("test");
+        let word = "test";
         unsafe {
-            trie_insert(t, word.as_ptr());
+            trie_insert(t, word.as_ptr(), word.len());
             trie_debug_print(t);
         }
         unsafe { trie_free(t) };
