@@ -314,12 +314,23 @@ mod tests {
     fn test_long_string_slow_path() {
         let mut trie = Trie::new(100, 3);
         // String longer than 64 characters to trigger the slow path
-        let long_word = "abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz";
+        let long_word =
+            "abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz";
         assert!(long_word.len() > 64);
 
         trie.insert(long_word);
         assert!(trie.contains(long_word));
         assert!(!trie.contains(&(long_word.to_string() + "extra")));
+    }
+
+    #[test]
+    fn test_boundary_64_bytes() {
+        let mut trie = Trie::new(100, 3);
+        let word_64 = "abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijkl";
+        assert_eq!(word_64.len(), 64);
+
+        trie.insert(word_64);
+        assert!(trie.contains(word_64));
     }
 
     #[test]
