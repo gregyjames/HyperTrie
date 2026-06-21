@@ -311,6 +311,37 @@ mod tests {
     }
 
     #[test]
+    fn test_long_string_slow_path() {
+        let mut trie = Trie::new(100, 3);
+        // String longer than 64 characters to trigger the slow path
+        let long_word = "abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz";
+        assert!(long_word.len() > 64);
+
+        trie.insert(long_word);
+        assert!(trie.contains(long_word));
+        assert!(!trie.contains(&(long_word.to_string() + "extra")));
+    }
+
+    #[test]
+    fn test_invalid_characters_filtering() {
+        let mut trie = Trie::new(100, 3);
+        // Characters other than a-z and A-Z should be ignored
+        trie.insert("hello-world!");
+        assert!(trie.contains("helloworld"));
+        assert!(trie.contains("H E L L O W O R L D"));
+        assert!(trie.contains("hello-world")); // because '-' is filtered out in search too
+        assert!(!trie.contains("hello"));
+    }
+
+    #[test]
+    fn test_words_with_prefix_filtering() {
+        let mut trie = Trie::new(100, 3);
+        trie.insert("apple-pie");
+        let results = trie.words_with_prefix("apple");
+        assert!(results.contains(&"applepie".to_string()));
+    }
+
+    #[test]
     fn test_words_with_prefix() {
         let mut trie = Trie::new(100, 3);
         trie.insert("apple");
