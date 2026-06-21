@@ -296,9 +296,18 @@ mod tests {
     fn test_case_insensitivity() {
         let mut trie = Trie::new(100, 3);
         trie.insert("Hello");
-        assert!(trie.contains("hello"), "Should find 'hello' after inserting 'Hello'");
-        assert!(trie.contains("HELLO"), "Should find 'HELLO' after inserting 'Hello'");
-        assert!(trie.contains("Hello"), "Should find 'Hello' after inserting 'Hello'");
+        assert!(
+            trie.contains("hello"),
+            "Should find 'hello' after inserting 'Hello'"
+        );
+        assert!(
+            trie.contains("HELLO"),
+            "Should find 'HELLO' after inserting 'Hello'"
+        );
+        assert!(
+            trie.contains("Hello"),
+            "Should find 'Hello' after inserting 'Hello'"
+        );
     }
 
     #[test]

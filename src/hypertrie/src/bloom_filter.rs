@@ -48,7 +48,6 @@ impl BloomFilter {
         hasher.finish()
     }
 
-
     /// Derive subsequent hashes from the base hash + index
     /// This is significantly faster than hashing the string again
     #[inline(always)]
