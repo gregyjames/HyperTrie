@@ -353,6 +353,28 @@ mod tests {
     }
 
     #[test]
+    fn test_diverse_strings_coverage() {
+        let mut trie = Trie::new(100, 3);
+        // Empty string
+        trie.insert("");
+        assert!(trie.contains(""));
+
+        // Only invalid characters
+        trie.insert("!!! @@@");
+        // Normalized "!!! @@@" is ""
+        assert!(trie.contains(""));
+
+        // Long string with invalid characters
+        let long_invalid = "A".repeat(70) + "!!!";
+        trie.insert(&long_invalid);
+        assert!(trie.contains(&"a".repeat(70)));
+
+        // Prefix mismatch mid-way
+        trie.insert("apple");
+        assert!(trie.words_with_prefix("apz").is_empty());
+    }
+
+    #[test]
     fn test_words_with_prefix() {
         let mut trie = Trie::new(100, 3);
         trie.insert("apple");
