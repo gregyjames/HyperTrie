@@ -234,4 +234,31 @@ mod tests {
         let unknowns = trie.words_with_prefix(b"unknown");
         assert!(unknowns.is_empty());
     }
+
+    #[test]
+    fn test_long_string_stack_threshold() {
+        let mut trie = Trie::new(100, 3);
+        // A word longer than common stack buffers (though this trie uses Vec)
+        let long_word = "a".repeat(100);
+        trie.insert(long_word.as_bytes());
+        assert!(trie.contains(long_word.as_bytes()));
+    }
+
+    #[test]
+    fn test_case_insensitivity_and_invalid_chars() {
+        let mut trie = Trie::new(100, 3);
+
+        // Case insensitivity
+        trie.insert(b"Hello");
+        assert!(trie.contains(b"hello"));
+        assert!(trie.contains(b"HELLO"));
+        assert!(trie.contains(b"hElLo"));
+
+        // Prefix search with case insensitivity
+        let results = trie.words_with_prefix(b"HELL");
+        assert!(results.contains(&"hello".to_string()));
+
+        // Prefix search early return on invalid character
+        assert!(trie.words_with_prefix(b"!").is_empty());
+    }
 }

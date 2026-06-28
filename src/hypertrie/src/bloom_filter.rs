@@ -46,7 +46,16 @@ impl BloomFilter {
     #[inline(always)]
     fn get_base_hash(&self, item: &[u8]) -> u64 {
         let mut hasher = GxHasher::with_seed(SEED);
-        hasher.write(item);
+        let mut buffer = [0u8; 64];
+        if item.len() <= 64 {
+            for i in 0..item.len() {
+                buffer[i] = item[i].to_ascii_lowercase();
+            }
+            hasher.write(&buffer[..item.len()]);
+        } else {
+            let lowered: Vec<u8> = item.iter().map(|b| b.to_ascii_lowercase()).collect();
+            hasher.write(&lowered);
+        }
         hasher.finish()
     }
 }
@@ -139,12 +148,12 @@ mod tests {
     }
 
     #[test]
-    fn test_case_sensitive() {
+    fn test_bloom_filter_case_insensitive() {
         let mut bf = make_filter(1024, 3);
         bf.insert(b"Hello");
         assert!(bf.contains(b"Hello"));
-        assert!(!bf.contains(b"hello"));
-        assert!(!bf.contains(b"HELLO"));
+        assert!(bf.contains(b"hello"));
+        assert!(bf.contains(b"HELLO"));
     }
 
     #[test]
@@ -153,7 +162,8 @@ mod tests {
         bf.insert(b"abc");
         assert!(!bf.contains(b"ab"));
         assert!(!bf.contains(b"abcd"));
-        assert!(!bf.contains(b"ABC"));
+        // Now case-insensitive
+        assert!(bf.contains(b"ABC"));
     }
 
     // --- num_hashes boundary ---

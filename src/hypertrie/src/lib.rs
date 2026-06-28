@@ -288,6 +288,18 @@ mod tests {
         unsafe { trie_free(t) };
     }
 
+    #[test]
+    fn test_bulk_insert_with_null_in_array() {
+        let t = make_trie();
+        let word = cstr("foo");
+        let ptrs = [word.as_ptr(), ptr::null()];
+        unsafe {
+            trie_bulk_insert(t, ptrs.as_ptr(), 2);
+            assert!(trie_contains(t, word.as_ptr()));
+        }
+        unsafe { trie_free(t) };
+    }
+
     // --- trie_words_with_prefix ---
 
     #[test]
@@ -357,6 +369,21 @@ mod tests {
         let mut out_len: usize = 0;
         let result = unsafe { trie_words_with_prefix(t, ptr::null(), &mut out_len) };
         assert!(result.is_null());
+        unsafe { trie_free(t) };
+    }
+
+    #[test]
+    fn test_words_with_prefix_empty_prefix() {
+        let t = make_trie();
+        let word = cstr("apple");
+        unsafe {
+            trie_insert(t, word.as_ptr());
+            let mut out_len = 0;
+            let result = trie_words_with_prefix(t, cstr("").as_ptr(), &mut out_len);
+            assert!(!result.is_null());
+            assert_eq!(out_len, 1);
+            trie_free_words(result, out_len);
+        }
         unsafe { trie_free(t) };
     }
 
