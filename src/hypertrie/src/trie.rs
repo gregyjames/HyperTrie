@@ -61,7 +61,8 @@ impl Trie {
             }
 
             // Check if child exists using bitmask
-            if (unsafe { self.nodes.get_unchecked(current_idx) }.children_mask & (1 << bit_idx)) == 0
+            if (unsafe { self.nodes.get_unchecked(current_idx) }.children_mask & (1 << bit_idx))
+                == 0
             {
                 let new_node_idx = self.nodes.len() as u32;
                 self.nodes.push(Node::new(b'a' + bit_idx as u8));

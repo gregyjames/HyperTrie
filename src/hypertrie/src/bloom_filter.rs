@@ -49,7 +49,6 @@ impl BloomFilter {
         hasher.write(item);
         hasher.finish()
     }
-
 }
 
 #[cfg(test)]
