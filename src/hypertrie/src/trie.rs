@@ -159,9 +159,8 @@ impl Trie {
         let mut buffer = Vec::with_capacity(prefix.len() + 10);
         for &b in prefix {
             let bit_idx = unsafe { *CHAR_TO_BIT.get_unchecked(b as usize) };
-            if bit_idx != 255 {
-                buffer.push(b'a' + bit_idx);
-            }
+            // bit_idx is guaranteed to be < 26 because of the verification in Step 1
+            buffer.push(b'a' + bit_idx);
         }
 
         self.collect_words_from_node(current_idx, &mut buffer, &mut results);
