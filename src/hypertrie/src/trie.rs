@@ -238,10 +238,18 @@ mod tests {
     #[test]
     fn test_long_string_stack_threshold() {
         let mut trie = Trie::new(100, 3);
-        // A word longer than common stack buffers (though this trie uses Vec)
+        // A word longer than common stack buffers
         let long_word = "a".repeat(100);
         trie.insert(long_word.as_bytes());
         assert!(trie.contains(long_word.as_bytes()));
+
+        // Also test bloom filter long path
+        assert!(trie.bloom_filter.contains(long_word.as_bytes()));
+
+        // test words with prefix long
+        let results = trie.words_with_prefix(long_word.as_bytes());
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0], long_word);
     }
 
     #[test]
