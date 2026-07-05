@@ -57,13 +57,12 @@ impl Trie {
         for &b in word {
             let bit_idx = unsafe { *CHAR_TO_BIT.get_unchecked(b as usize) } as usize;
             if bit_idx == 255 {
-                continue;
+                return; // Reject words with invalid characters
             }
 
             // Check if child exists using bitmask
-            if (unsafe { self.nodes.get_unchecked(current_idx) }.children_mask & (1 << bit_idx))
-                == 0
-            {
+            let node = unsafe { self.nodes.get_unchecked(current_idx) };
+            if (node.children_mask & (1 << bit_idx)) == 0 {
                 let new_node_idx = self.nodes.len() as u32;
                 self.nodes.push(Node::new(b'a' + bit_idx as u8));
 
@@ -94,7 +93,7 @@ impl Trie {
         for &b in word {
             let bit_idx = unsafe { *CHAR_TO_BIT.get_unchecked(b as usize) } as usize;
             if bit_idx == 255 {
-                continue;
+                return false; // Word with invalid char cannot be in Trie
             }
 
             let node = unsafe { self.nodes.get_unchecked(current_idx) };
