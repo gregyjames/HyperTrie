@@ -52,30 +52,29 @@ impl Trie {
     }
 
     pub fn insert(&mut self, word: &[u8]) {
-        let mut current_idx = 0;
+        // Pre-validate to avoid partial insertions and ensure all characters are supported (a-z, A-Z)
+        for &b in word {
+            if CHAR_TO_BIT[b as usize] == 255 {
+                return;
+            }
+        }
 
+        let mut current_idx = 0;
         for &b in word {
             let bit_idx = unsafe { *CHAR_TO_BIT.get_unchecked(b as usize) } as usize;
-            if bit_idx == 255 {
-                return; // Reject words with invalid characters
-            }
 
-            // Check if child exists using bitmask
             let node = unsafe { self.nodes.get_unchecked(current_idx) };
             if (node.children_mask & (1 << bit_idx)) == 0 {
                 let new_node_idx = self.nodes.len() as u32;
                 self.nodes.push(Node::new(b'a' + bit_idx as u8));
 
-                // Update parent
-                let node = unsafe { self.nodes.get_unchecked_mut(current_idx) };
-                node.children_mask |= 1 << bit_idx;
-                node.children_indices[bit_idx] = new_node_idx;
-
+                // Re-fetch parent node since push might have reallocated the vector
+                let parent = unsafe { self.nodes.get_unchecked_mut(current_idx) };
+                parent.children_mask |= 1 << bit_idx;
+                parent.children_indices[bit_idx] = new_node_idx;
                 current_idx = new_node_idx as usize;
             } else {
-                current_idx = unsafe {
-                    self.nodes.get_unchecked(current_idx).children_indices[bit_idx] as usize
-                };
+                current_idx = node.children_indices[bit_idx] as usize;
             }
         }
 
@@ -91,9 +90,9 @@ impl Trie {
 
         let mut current_idx = 0;
         for &b in word {
-            let bit_idx = unsafe { *CHAR_TO_BIT.get_unchecked(b as usize) } as usize;
+            let bit_idx = CHAR_TO_BIT[b as usize] as usize;
             if bit_idx == 255 {
-                return false; // Word with invalid char cannot be in Trie
+                return false;
             }
 
             let node = unsafe { self.nodes.get_unchecked(current_idx) };
@@ -135,31 +134,25 @@ impl Trie {
     }
 
     pub fn words_with_prefix(&self, prefix: &[u8]) -> Vec<String> {
-        let mut current_idx = 0; // Start at root
+        let mut current_idx = 0;
 
-        // 1. Navigate to the end of the prefix
         for &b in prefix {
-            let bit_idx = unsafe { *CHAR_TO_BIT.get_unchecked(b as usize) } as usize;
+            let bit_idx = CHAR_TO_BIT[b as usize] as usize;
             if bit_idx == 255 {
                 return Vec::new();
             }
 
             let node = unsafe { self.nodes.get_unchecked(current_idx) };
-            // Use the bitmask to check if the path exists
             if (node.children_mask & (1 << bit_idx)) == 0 {
-                return Vec::new(); // Prefix not found
+                return Vec::new();
             }
             current_idx = node.children_indices[bit_idx] as usize;
         }
 
-        // 2. Collect all words starting from this node
         let mut results = Vec::new();
-        // Pre-allocate the buffer with the prefix to avoid mid-search reallocations
-        let mut buffer = Vec::with_capacity(prefix.len() + 10);
+        let mut buffer = Vec::with_capacity(prefix.len() + 16);
         for &b in prefix {
-            let bit_idx = unsafe { *CHAR_TO_BIT.get_unchecked(b as usize) };
-            // bit_idx is guaranteed to be < 26 because of the verification in Step 1
-            buffer.push(b'a' + bit_idx);
+            buffer.push(b.to_ascii_lowercase());
         }
 
         self.collect_words_from_node(current_idx, &mut buffer, &mut results);
@@ -266,5 +259,21 @@ mod tests {
 
         // Prefix search early return on invalid character
         assert!(trie.words_with_prefix(b"!").is_empty());
+    }
+
+    #[test]
+    fn test_invalid_character_handling() {
+        let mut trie = Trie::new(10, 3);
+
+        // Insert word with invalid char - should be rejected
+        trie.insert(b"abc!def");
+        assert!(!trie.contains(b"abcdef"));
+
+        // Contains with invalid char - should return false
+        trie.insert(b"abc");
+        assert!(!trie.contains(b"abc!"));
+
+        // Prefix with invalid char - should return empty
+        assert!(trie.words_with_prefix(b"abc!").is_empty());
     }
 }
