@@ -1,3 +1,5 @@
+use std::borrow::Cow;
+
 use crate::bloom_filter::BloomFilter;
 
 const ALPHABET_SIZE: usize = 26;
@@ -59,17 +61,17 @@ impl Trie {
 
         // Use stack buffer for normalization if word is short enough
         let mut stack_buf = [0u8; 64];
-        let normalized = if len <= 64 {
+        let normalized: Cow<[u8]> = if len <= 64 {
             for i in 0..len {
                 stack_buf[i] = bytes[i].to_ascii_lowercase();
             }
-            &stack_buf[..len]
+            Cow::Borrowed(&stack_buf[..len])
         } else {
             // Fallback to heap for very long words (rare in typical dictionary use)
-            &word.to_ascii_lowercase().into_bytes()
+            Cow::Owned(word.to_ascii_lowercase().into_bytes())
         };
 
-        for &b in normalized {
+        for &b in normalized.as_ref() {
             let bit_idx = unsafe { *CHAR_TO_BIT.get_unchecked(b as usize) };
             if bit_idx == 255 {
                 continue; // Skip non-alphabetic
@@ -98,7 +100,7 @@ impl Trie {
         unsafe {
             self.nodes.get_unchecked_mut(current_idx).end_of_word = true;
         }
-        self.bloom_filter.insert(normalized);
+        self.bloom_filter.insert(&normalized);
     }
 
     pub fn contains(&self, word: &str) -> bool {
@@ -107,22 +109,22 @@ impl Trie {
 
         // Normalize once to a stack buffer
         let mut stack_buf = [0u8; 64];
-        let normalized = if len <= 64 {
+        let normalized: Cow<[u8]> = if len <= 64 {
             for i in 0..len {
                 stack_buf[i] = bytes[i].to_ascii_lowercase();
             }
-            &stack_buf[..len]
+            Cow::Borrowed(&stack_buf[..len])
         } else {
-            &word.to_ascii_lowercase().into_bytes()
+            Cow::Owned(word.to_ascii_lowercase().into_bytes())
         };
 
         // Bloom Filter is usually faster than a full Trie walk for non-members
-        if !self.bloom_filter.contains(normalized) {
+        if !self.bloom_filter.contains(&normalized) {
             return false;
         }
 
         let mut current_idx = 0;
-        for &b in normalized {
+        for &b in normalized.as_ref() {
             let bit_idx = unsafe { *CHAR_TO_BIT.get_unchecked(b as usize) };
             if bit_idx == 255 {
                 continue;
@@ -171,24 +173,28 @@ impl Trie {
         let mut current_idx = 0; // Start at root
         let bytes = prefix.as_bytes();
 
+        // Normalize prefix once
+        let mut buffer = Vec::with_capacity(bytes.len() + 8);
+
         // 1. Navigate to the end of the prefix
         for &b in bytes {
-            let char_val = b.to_ascii_lowercase();
-            let bit_idx = (char_val - b'a') as usize;
+            let bit_idx = unsafe { *CHAR_TO_BIT.get_unchecked(b as usize) };
+            if bit_idx == 255 {
+                continue;
+            }
+            let bit_idx = bit_idx as usize;
 
-            let node = &self.nodes[current_idx];
+            let node = unsafe { self.nodes.get_unchecked(current_idx) };
             // Use the bitmask to check if the path exists
             if (node.children_mask & (1 << bit_idx)) == 0 {
                 return Vec::new(); // Prefix not found
             }
-            current_idx = node.children_indices[bit_idx] as usize;
+            current_idx = unsafe { *node.children_indices.get_unchecked(bit_idx) as usize };
+            buffer.push(b'a' + bit_idx as u8);
         }
 
         // 2. Collect all words starting from this node
         let mut results = Vec::new();
-        // Pre-allocate the buffer with the prefix to avoid mid-search reallocations
-        let mut buffer = prefix.to_ascii_lowercase().into_bytes();
-
         self.collect_words_from_node(current_idx, &mut buffer, &mut results);
         results
     }
@@ -233,7 +239,10 @@ mod tests {
     fn test_case_insensitive_bloom_filter_bug() {
         let mut trie = Trie::new(100, 3);
         trie.insert("Hello");
-        assert!(trie.contains("hello"), "Trie should be case-insensitive, but Bloom Filter blocked it.");
+        assert!(
+            trie.contains("hello"),
+            "Trie should be case-insensitive, but Bloom Filter blocked it."
+        );
     }
 
     #[test]
