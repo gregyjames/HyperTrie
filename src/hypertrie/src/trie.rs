@@ -8,8 +8,8 @@ static CHAR_TO_BIT: [u8; 256] = {
     let mut table = [255u8; 256];
     let mut i = 0;
     while i < 26 {
-        table[(b'a' + i) as usize] = i as u8;
-        table[(b'A' + i) as usize] = i as u8;
+        table[(b'a' + i) as usize] = i;
+        table[(b'A' + i) as usize] = i;
         i += 1;
     }
     table
@@ -59,24 +59,31 @@ impl Trie {
         let bytes = word.as_bytes();
         let len = bytes.len();
 
-        // Use stack buffer for normalization if word is short enough
+        // Use stack buffer for normalization and filtering if word is short enough
         let mut stack_buf = [0u8; 64];
+        let mut filtered_len = 0;
         let normalized: Cow<[u8]> = if len <= 64 {
-            for i in 0..len {
-                stack_buf[i] = bytes[i].to_ascii_lowercase();
+            for &b in bytes {
+                let bit_idx = unsafe { *CHAR_TO_BIT.get_unchecked(b as usize) };
+                if bit_idx != 255 {
+                    stack_buf[filtered_len] = b'a' + bit_idx;
+                    filtered_len += 1;
+                }
             }
-            Cow::Borrowed(&stack_buf[..len])
+            Cow::Borrowed(&stack_buf[..filtered_len])
         } else {
-            // Fallback to heap for very long words (rare in typical dictionary use)
-            Cow::Owned(word.to_ascii_lowercase().into_bytes())
+            let mut v = Vec::with_capacity(len);
+            for &b in bytes {
+                let bit_idx = unsafe { *CHAR_TO_BIT.get_unchecked(b as usize) };
+                if bit_idx != 255 {
+                    v.push(b'a' + bit_idx);
+                }
+            }
+            Cow::Owned(v)
         };
 
         for &b in normalized.as_ref() {
-            let bit_idx = unsafe { *CHAR_TO_BIT.get_unchecked(b as usize) };
-            if bit_idx == 255 {
-                continue; // Skip non-alphabetic
-            }
-            let bit_idx = bit_idx as usize;
+            let bit_idx = (b - b'a') as usize;
 
             // Check if child exists using bitmask
             unsafe {
@@ -109,13 +116,25 @@ impl Trie {
 
         // Normalize once to a stack buffer
         let mut stack_buf = [0u8; 64];
+        let mut filtered_len = 0;
         let normalized: Cow<[u8]> = if len <= 64 {
-            for i in 0..len {
-                stack_buf[i] = bytes[i].to_ascii_lowercase();
+            for &b in bytes {
+                let bit_idx = unsafe { *CHAR_TO_BIT.get_unchecked(b as usize) };
+                if bit_idx != 255 {
+                    stack_buf[filtered_len] = b'a' + bit_idx;
+                    filtered_len += 1;
+                }
             }
-            Cow::Borrowed(&stack_buf[..len])
+            Cow::Borrowed(&stack_buf[..filtered_len])
         } else {
-            Cow::Owned(word.to_ascii_lowercase().into_bytes())
+            let mut v = Vec::with_capacity(len);
+            for &b in bytes {
+                let bit_idx = unsafe { *CHAR_TO_BIT.get_unchecked(b as usize) };
+                if bit_idx != 255 {
+                    v.push(b'a' + bit_idx);
+                }
+            }
+            Cow::Owned(v)
         };
 
         // Bloom Filter is usually faster than a full Trie walk for non-members
@@ -125,11 +144,7 @@ impl Trie {
 
         let mut current_idx = 0;
         for &b in normalized.as_ref() {
-            let bit_idx = unsafe { *CHAR_TO_BIT.get_unchecked(b as usize) };
-            if bit_idx == 255 {
-                continue;
-            }
-            let bit_idx = bit_idx as usize;
+            let bit_idx = (b - b'a') as usize;
 
             let node = unsafe { self.nodes.get_unchecked(current_idx) };
             if (node.children_mask & (1 << bit_idx)) == 0 {
