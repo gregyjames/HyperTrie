@@ -9,3 +9,4 @@ crate-type = ["cdylib"]
 [dependencies]
 bit-vec = "0.10.0"
 gxhash = "3.5.0"
+mimalloc = "0.1"
