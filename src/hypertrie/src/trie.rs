@@ -1,4 +1,6 @@
-use std::borrow::Cow;
+use std::sync::Mutex;
+
+use stumpalo::Arena;
 
 use crate::bloom_filter::BloomFilter;
 
@@ -36,6 +38,7 @@ impl Node {
 pub struct Trie {
     nodes: Vec<Node>,
     bloom_filter: BloomFilter,
+    arena: Mutex<Arena>,
 }
 
 impl Trie {
@@ -51,6 +54,7 @@ impl Trie {
         Trie {
             nodes,
             bloom_filter: BloomFilter::new(optimized_size, num_hashes),
+            arena: Mutex::new(Arena::new()),
         }
     }
 
@@ -62,7 +66,7 @@ impl Trie {
         // Use stack buffer for normalization and filtering if word is short enough
         let mut stack_buf = [0u8; 64];
         let mut filtered_len = 0;
-        let normalized: Cow<[u8]> = if len <= 64 {
+        let normalized: &[u8] = if len <= 64 {
             for &b in bytes {
                 let bit_idx = unsafe { *CHAR_TO_BIT.get_unchecked(b as usize) };
                 if bit_idx != 255 {
@@ -70,19 +74,25 @@ impl Trie {
                     filtered_len += 1;
                 }
             }
-            Cow::Borrowed(&stack_buf[..filtered_len])
+            &stack_buf[..filtered_len]
         } else {
-            let mut v = Vec::with_capacity(len);
+            // Since we have `&mut self`, we can access `self.arena` directly
+            // and completely bypass any Mutex locking overhead using `.get_mut()`!
+            let arena = self.arena.get_mut().unwrap();
+            arena.clear();
+            let buf = arena.alloc_slice_fill_default(len);
+            let mut idx = 0;
             for &b in bytes {
                 let bit_idx = unsafe { *CHAR_TO_BIT.get_unchecked(b as usize) };
                 if bit_idx != 255 {
-                    v.push(b'a' + bit_idx);
+                    buf[idx] = b'a' + bit_idx;
+                    idx += 1;
                 }
             }
-            Cow::Owned(v)
+            &buf[..idx]
         };
 
-        for &b in normalized.as_ref() {
+        for &b in normalized {
             let bit_idx = (b - b'a') as usize;
 
             // Check if child exists using bitmask
@@ -107,7 +117,7 @@ impl Trie {
         unsafe {
             self.nodes.get_unchecked_mut(current_idx).end_of_word = true;
         }
-        self.bloom_filter.insert(&normalized);
+        self.bloom_filter.insert(normalized);
     }
 
     pub fn contains(&self, word: &str) -> bool {
@@ -117,7 +127,11 @@ impl Trie {
         // Normalize once to a stack buffer
         let mut stack_buf = [0u8; 64];
         let mut filtered_len = 0;
-        let normalized: Cow<[u8]> = if len <= 64 {
+
+        // Declare the MutexGuard at the function level to keep the lock/memory alive for `normalized`.
+        let mut arena_guard = None;
+
+        let normalized: &[u8] = if len <= 64 {
             for &b in bytes {
                 let bit_idx = unsafe { *CHAR_TO_BIT.get_unchecked(b as usize) };
                 if bit_idx != 255 {
@@ -125,25 +139,33 @@ impl Trie {
                     filtered_len += 1;
                 }
             }
-            Cow::Borrowed(&stack_buf[..filtered_len])
+            &stack_buf[..filtered_len]
         } else {
-            let mut v = Vec::with_capacity(len);
+            // Lock the mutex and store the guard in our stable outer scope `arena_guard`
+            // to safely preserve the reference lifetime without moves.
+            let guard = arena_guard.insert(self.arena.lock().unwrap());
+            guard.clear();
+            let buf = guard.alloc_slice_fill_default(len);
+            let mut idx = 0;
             for &b in bytes {
                 let bit_idx = unsafe { *CHAR_TO_BIT.get_unchecked(b as usize) };
                 if bit_idx != 255 {
-                    v.push(b'a' + bit_idx);
+                    buf[idx] = b'a' + bit_idx;
+                    idx += 1;
                 }
             }
-            Cow::Owned(v)
+            // Safety: The memory remains completely valid because `arena_guard` keeps the Arena locked
+            // and alive for the entire duration of the `contains` function.
+            unsafe { std::slice::from_raw_parts(buf.as_ptr(), idx) }
         };
 
         // Bloom Filter is usually faster than a full Trie walk for non-members
-        if !self.bloom_filter.contains(&normalized) {
+        if !self.bloom_filter.contains(normalized) {
             return false;
         }
 
         let mut current_idx = 0;
-        for &b in normalized.as_ref() {
+        for &b in normalized {
             let bit_idx = (b - b'a') as usize;
 
             let node = unsafe { self.nodes.get_unchecked(current_idx) };

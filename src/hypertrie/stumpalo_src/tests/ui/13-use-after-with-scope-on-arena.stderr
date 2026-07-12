@@ -1,0 +1,14 @@
+error[E0502]: cannot borrow `root` as mutable because it is also borrowed as immutable
+  --> tests/ui/13-use-after-with-scope-on-arena.rs:12:5
+   |
+ 9 |       let x = root.alloc(42u32);
+   |               ---- immutable borrow occurs here
+...
+12 | /     root.with_scope(|scope| {
+13 | |         let y = scope.alloc(1u32);
+14 | |         assert_eq!(*y, 1);
+15 | |     });
+   | |______^ mutable borrow occurs here
+...
+18 |       assert_eq!(*x, 42);
+   |       ------------------ immutable borrow later used here

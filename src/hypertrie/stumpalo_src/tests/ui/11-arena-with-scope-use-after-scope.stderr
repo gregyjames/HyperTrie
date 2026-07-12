@@ -1,0 +1,9 @@
+error[E0521]: borrowed data escapes outside of closure
+ --> tests/ui/11-arena-with-scope-use-after-scope.rs:7:9
+  |
+5 |     let mut out: Option<&mut u32> = None;
+  |         ------- `out` declared here, outside of the closure body
+6 |     arena.with_scope(|scope| {
+  |                       ----- `scope` is a reference that is only valid in the closure body
+7 |         out = Some(scope.alloc(42u32));
+  |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ `scope` escapes the closure body here

@@ -10,3 +10,4 @@ crate-type = ["cdylib"]
 bit-vec = "0.10.0"
 gxhash = "3.5.0"
 mimalloc = "0.1"
+stumpalo = { path = "stumpalo_src" }

@@ -1,0 +1,13 @@
+error: lifetime may not live long enough
+ --> tests/ui/09-arena-with-scope-return-ref.rs:5:48
+  |
+5 |     let r: &mut u32 = arena.with_scope(|scope| scope.alloc(42u32));
+  |                                         ------ ^^^^^^^^^^^^^^^^^^ returning this value requires that `'1` must outlive `'2`
+  |                                         |    |
+  |                                         |    return type of closure is &'2 mut u32
+  |                                         has type `&'1 mut ArenaRef<'1>`
+  |
+help: dereference the return value
+  |
+5 |     let r: &mut u32 = arena.with_scope(|scope| *scope.alloc(42u32));
+  |                                                +

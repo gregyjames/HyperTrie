@@ -1,0 +1,35 @@
+[package]
+name = "stumpalo"
+version = "0.3.0"
+edition = "2024"
+description = "A fast, zero-dependency, memory efficient bump allocator with chunk reuse and scoped stack support"
+documentation = "https://docs.rs/stumpalo/latest/stumpalo/"
+homepage = "https://codeberg.org/414owen/stumpalo"
+repository = "https://codeberg.org/414owen/stumpalo"
+license = "BSD-3-Clause"
+keywords = ["arena", "bump", "stack", "allocator", "performance"]
+categories = ["memory-management"]
+readme = "README.md"
+
+[dependencies]
+
+[dev-dependencies]
+bumpalo = "3"
+blink-alloc = "0.4"
+mimalloc = "0.1"
+trybuild = "1"
+libc = "0.2"
+
+[build-dependencies]
+readme-rustdocifier = "0.1.1"
+
+[features]
+std = []
+
+[[bench]]
+name = "comparison"
+harness = false
+
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]

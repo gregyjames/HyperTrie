@@ -1,0 +1,20 @@
+error[E0502]: cannot borrow `arena` as mutable because it is also borrowed as immutable
+ --> tests/ui/06-use-outer-arena-ref-inside-with-scope.rs:5:5
+  |
+5 |       arena.with_scope(|scope| {
+  |       ^     ---------- ------- immutable borrow occurs here
+  |       |     |
+  |  _____|     immutable borrow later used by call
+  | |
+6 | |         arena.alloc(1u32);
+  | |         ----- first borrow occurs due to use of `arena` in closure
+7 | |     });
+  | |______^ mutable borrow occurs here
+
+warning: unused variable: `scope`
+ --> tests/ui/06-use-outer-arena-ref-inside-with-scope.rs:5:23
+  |
+5 |     arena.with_scope(|scope| {
+  |                       ^^^^^ help: if this is intentional, prefix it with an underscore: `_scope`
+  |
+  = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default

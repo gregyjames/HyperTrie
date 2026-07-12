@@ -1,0 +1,17 @@
+error[E0502]: cannot borrow `arena` as immutable because it is also borrowed as mutable
+ --> tests/ui/04-use-arena-while-ref-alive.rs:6:13
+  |
+5 |     let r = arena.as_arena_ref_mut();
+  |             ----- mutable borrow occurs here
+6 |     let a = arena.alloc(1u32);
+  |             ^^^^^ immutable borrow occurs here
+7 |     r.alloc(2u32);
+  |     - mutable borrow later used here
+
+warning: unused variable: `a`
+ --> tests/ui/04-use-arena-while-ref-alive.rs:6:9
+  |
+6 |     let a = arena.alloc(1u32);
+  |         ^ help: if this is intentional, prefix it with an underscore: `_a`
+  |
+  = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default

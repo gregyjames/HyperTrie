@@ -1,0 +1,106 @@
+{
+  "format": 1,
+  "restore": {
+    "/app/build/_build.csproj": {}
+  },
+  "projects": {
+    "/app/build/_build.csproj": {
+      "version": "1.0.0",
+      "restore": {
+        "projectUniqueName": "/app/build/_build.csproj",
+        "projectName": "_build",
+        "projectPath": "/app/build/_build.csproj",
+        "packagesPath": "/home/jules/.nuget/packages/",
+        "outputPath": "/app/build/obj/",
+        "projectStyle": "PackageReference",
+        "centralPackageVersionsManagementEnabled": true,
+        "configFilePaths": [
+          "/app/nuget.config",
+          "/home/jules/.nuget/NuGet/NuGet.Config"
+        ],
+        "originalTargetFrameworks": [
+          "net8.0"
+        ],
+        "sources": {
+          "/usr/lib/dotnet/library-packs": {},
+          "https://api.nuget.org/v3/index.json": {},
+          "https://nuget.pkg.github.com/gregyjames/index.json": {}
+        },
+        "frameworks": {
+          "net8.0": {
+            "targetAlias": "net8.0",
+            "projectReferences": {}
+          }
+        },
+        "warningProperties": {
+          "noWarn": [
+            "NU1507"
+          ],
+          "warnAsError": [
+            "NU1605"
+          ]
+        },
+        "restoreAuditProperties": {
+          "enableAudit": "true",
+          "auditLevel": "low",
+          "auditMode": "direct"
+        },
+        "SdkAnalysisLevel": "10.0.100"
+      },
+      "frameworks": {
+        "net8.0": {
+          "targetAlias": "net8.0",
+          "dependencies": {
+            "Nuke.Common": {
+              "target": "Package",
+              "version": "[9.0.4, )",
+              "versionCentrallyManaged": true
+            },
+            "Nuke.Components": {
+              "target": "Package",
+              "version": "[9.0.4, )",
+              "versionCentrallyManaged": true
+            }
+          },
+          "centralPackageVersions": {
+            "BenchmarkDotNet": "0.15.8",
+            "coverlet.collector": "10.0.1",
+            "coverlet.msbuild": "10.0.1",
+            "JunitXml.TestLogger": "8.0.0",
+            "Microsoft.NET.Test.Sdk": "18.7.0",
+            "Nuke.Common": "9.0.4",
+            "Nuke.Components": "9.0.4",
+            "SonarAnalyzer.CSharp": "10.27.0.140913",
+            "System.Runtime.CompilerServices.Unsafe": "6.1.2",
+            "TrieNet.Core": "1.0.4",
+            "xunit": "2.9.3",
+            "xunit.runner.visualstudio": "3.1.5"
+          },
+          "imports": [
+            "net461",
+            "net462",
+            "net47",
+            "net471",
+            "net472",
+            "net48",
+            "net481"
+          ],
+          "assetTargetFallback": true,
+          "warn": true,
+          "downloadDependencies": [
+            {
+              "name": "Microsoft.NETCore.App.Host.linux-x64",
+              "version": "[8.0.24, 8.0.24]"
+            }
+          ],
+          "frameworkReferences": {
+            "Microsoft.NETCore.App": {
+              "privateAssets": "all"
+            }
+          },
+          "runtimeIdentifierGraphPath": "/usr/lib/dotnet/sdk/10.0.103/PortableRuntimeIdentifierGraph.json"
+        }
+      }
+    }
+  }
+}

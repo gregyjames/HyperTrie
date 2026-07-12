@@ -1,0 +1,11 @@
+error[E0505]: cannot move out of `root` because it is borrowed
+ --> tests/ui/08-cant-drop-while-alloc-alive.rs:6:10
+  |
+4 |     let root = Arena::new();
+  |         ---- binding `root` declared here
+5 |     let a = root.alloc(3u32);
+  |             ---- borrow of `root` occurs here
+6 |     drop(root);
+  |          ^^^^ move out of `root` occurs here
+7 |     let _b = a;
+  |              - borrow later used here

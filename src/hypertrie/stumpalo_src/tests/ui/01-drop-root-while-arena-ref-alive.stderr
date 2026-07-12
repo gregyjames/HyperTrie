@@ -1,0 +1,11 @@
+error[E0505]: cannot move out of `root` because it is borrowed
+ --> tests/ui/01-drop-root-while-arena-ref-alive.rs:6:10
+  |
+4 |     let mut root = Arena::new();
+  |         -------- binding `root` declared here
+5 |     let arena = root.as_arena_ref_mut();
+  |                 ---- borrow of `root` occurs here
+6 |     drop(root);
+  |          ^^^^ move out of `root` occurs here
+7 |     let _a = arena.alloc(3u32);
+  |              ----- borrow later used here

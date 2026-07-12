@@ -1,0 +1,5 @@
+error[E0599]: no method named `reset` found for mutable reference `&mut ArenaRef<'_>` in the current scope
+ --> tests/ui/03-reset-while-ref-alive.rs:7:11
+  |
+7 |     arena.reset();
+  |           ^^^^^ method not found in `&mut ArenaRef<'_>`

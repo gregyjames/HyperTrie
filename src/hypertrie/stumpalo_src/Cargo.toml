@@ -1,0 +1,30 @@
+[package]
+edition = "2024"
+name = "stumpalo"
+version = "0.3.0"
+autolib = false
+autobins = false
+autoexamples = false
+autotests = false
+autobenches = false
+description = "A fast, zero-dependency, memory efficient bump allocator with chunk reuse and scoped stack support"
+homepage = "https://codeberg.org/414owen/stumpalo"
+documentation = "https://docs.rs/stumpalo/latest/stumpalo/"
+readme = "README.md"
+keywords = [
+    "arena",
+    "bump",
+    "stack",
+    "allocator",
+    "performance",
+]
+categories = ["memory-management"]
+license = "BSD-3-Clause"
+repository = "https://codeberg.org/414owen/stumpalo"
+
+[features]
+std = []
+
+[lib]
+name = "stumpalo"
+path = "src/lib.rs"

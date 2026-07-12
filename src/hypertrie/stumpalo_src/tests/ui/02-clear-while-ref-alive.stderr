@@ -1,0 +1,9 @@
+error[E0502]: cannot borrow `arena` as mutable because it is also borrowed as immutable
+ --> tests/ui/02-clear-while-ref-alive.rs:6:5
+  |
+5 |     let a = arena.alloc(3u32);
+  |             ----- immutable borrow occurs here
+6 |     arena.clear();
+  |     ^^^^^^^^^^^^^ mutable borrow occurs here
+7 |     println!("{}", a);
+  |                    - immutable borrow later used here
