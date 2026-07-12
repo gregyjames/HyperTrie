@@ -296,4 +296,20 @@ mod tests {
         let unknowns = trie.words_with_prefix("unknown");
         assert!(unknowns.is_empty());
     }
+
+    #[test]
+    fn test_long_word() {
+        let mut trie = Trie::new(100, 3);
+        let long_word = "a".repeat(65);
+        trie.insert(&long_word);
+        assert!(trie.contains(&long_word));
+    }
+
+    #[test]
+    fn test_invalid_characters() {
+        let mut trie = Trie::new(100, 3);
+        trie.insert("abc!def");
+        assert!(trie.contains("abcdef"));
+        assert!(trie.contains("ABC!DEF"));
+    }
 }
