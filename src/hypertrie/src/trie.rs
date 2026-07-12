@@ -315,4 +315,54 @@ mod tests {
         let unknowns = trie.words_with_prefix("unknown");
         assert!(unknowns.is_empty());
     }
+
+    #[test]
+    fn test_trie_long_strings_stumpalo() {
+        let mut trie = Trie::new(1000, 3);
+
+        // 1. Long string > 64 chars containing only valid lowercase characters
+        let mut long_valid = String::new();
+        for _ in 0..80 {
+            long_valid.push('a');
+        }
+        trie.insert(&long_valid);
+        assert!(
+            trie.contains(&long_valid),
+            "Failed to find long valid string"
+        );
+
+        // 2. Long string > 64 chars containing uppercase and invalid characters (spaces, numbers)
+        // This ensures the bit_idx 255 check inside the stumpalo branch is fully hit and verified.
+        let mut long_mixed = String::new();
+        long_mixed.push_str("ABC123xyz ");
+        for _ in 0..70 {
+            long_mixed.push('m');
+        }
+        long_mixed.push_str(" DEF456"); // total length > 64
+        trie.insert(&long_mixed);
+
+        // Verify case-insensitivity on the long mixed string
+        assert!(
+            trie.contains(&long_mixed),
+            "Failed to find long mixed string with same case"
+        );
+        assert!(
+            trie.contains(&long_mixed.to_lowercase()),
+            "Failed to find long mixed string in lowercase"
+        );
+        assert!(
+            trie.contains(&long_mixed.to_uppercase()),
+            "Failed to find long mixed string in uppercase"
+        );
+
+        // 3. Verify a missing long string returns false
+        let mut long_missing = String::new();
+        for _ in 0..90 {
+            long_missing.push('z');
+        }
+        assert!(
+            !trie.contains(&long_missing),
+            "Found non-existent long string"
+        );
+    }
 }
