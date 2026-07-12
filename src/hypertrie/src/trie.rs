@@ -4,7 +4,9 @@ use crate::bloom_filter::BloomFilter;
 
 const ALPHABET_SIZE: usize = 26;
 
-static CHAR_TO_BIT: [u8; 256] = {
+// Bolt: Combined lookup table for normalization: maps ASCII to 0-25 or 255 if invalid.
+// This allows direct mapping to 'a'-'z' and bit indices in one go.
+static CHAR_NORM: [u8; 256] = {
     let mut table = [255u8; 256];
     let mut i = 0;
     while i < 26 {
@@ -64,7 +66,7 @@ impl Trie {
         let mut filtered_len = 0;
         let normalized: Cow<[u8]> = if len <= 64 {
             for &b in bytes {
-                let bit_idx = unsafe { *CHAR_TO_BIT.get_unchecked(b as usize) };
+                let bit_idx = unsafe { *CHAR_NORM.get_unchecked(b as usize) };
                 if bit_idx != 255 {
                     stack_buf[filtered_len] = b'a' + bit_idx;
                     filtered_len += 1;
@@ -74,7 +76,7 @@ impl Trie {
         } else {
             let mut v = Vec::with_capacity(len);
             for &b in bytes {
-                let bit_idx = unsafe { *CHAR_TO_BIT.get_unchecked(b as usize) };
+                let bit_idx = unsafe { *CHAR_NORM.get_unchecked(b as usize) };
                 if bit_idx != 255 {
                     v.push(b'a' + bit_idx);
                 }
@@ -119,7 +121,7 @@ impl Trie {
         let mut filtered_len = 0;
         let normalized: Cow<[u8]> = if len <= 64 {
             for &b in bytes {
-                let bit_idx = unsafe { *CHAR_TO_BIT.get_unchecked(b as usize) };
+                let bit_idx = unsafe { *CHAR_NORM.get_unchecked(b as usize) };
                 if bit_idx != 255 {
                     stack_buf[filtered_len] = b'a' + bit_idx;
                     filtered_len += 1;
@@ -129,7 +131,7 @@ impl Trie {
         } else {
             let mut v = Vec::with_capacity(len);
             for &b in bytes {
-                let bit_idx = unsafe { *CHAR_TO_BIT.get_unchecked(b as usize) };
+                let bit_idx = unsafe { *CHAR_NORM.get_unchecked(b as usize) };
                 if bit_idx != 255 {
                     v.push(b'a' + bit_idx);
                 }
@@ -193,7 +195,7 @@ impl Trie {
 
         // 1. Navigate to the end of the prefix
         for &b in bytes {
-            let bit_idx = unsafe { *CHAR_TO_BIT.get_unchecked(b as usize) };
+            let bit_idx = unsafe { *CHAR_NORM.get_unchecked(b as usize) };
             if bit_idx == 255 {
                 continue;
             }
@@ -231,17 +233,18 @@ impl Trie {
             }
         }
 
-        // Iterate through all possible children (a-z)
-        for i in 0..26 {
-            // Only recurse if the bitmask says a child exists
-            if (node.children_mask & (1 << i)) != 0 {
-                let child_idx = unsafe { *node.children_indices.get_unchecked(i) as usize };
+        // Bolt: Iterate only over bits set in children_mask using trailing_zeros for faster traversal
+        let mut mask = node.children_mask;
+        while mask != 0 {
+            let i = mask.trailing_zeros() as usize;
+            let child_idx = unsafe { *node.children_indices.get_unchecked(i) as usize };
 
-                // Push the character for this branch
-                buffer.push(b'a' + i as u8);
-                self.collect_words_from_node(child_idx, buffer, results);
-                buffer.pop(); // Backtrack for the next branch
-            }
+            // Push the character for this branch
+            buffer.push(b'a' + i as u8);
+            self.collect_words_from_node(child_idx, buffer, results);
+            buffer.pop(); // Backtrack for the next branch
+
+            mask &= !(1 << i);
         }
     }
 }
