@@ -50,7 +50,7 @@ impl BloomFilter {
     #[inline(always)]
     fn get_base_hash(&self, item: &[u8]) -> u64 {
         // Bolt: Using direct gxhash64 for faster base hash computation
-        gxhash::gxhash64(item, SEED as i64)
+        gxhash::gxhash64(item, SEED)
     }
 }
 
