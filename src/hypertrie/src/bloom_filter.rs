@@ -49,7 +49,7 @@ impl BloomFilter {
 
     #[inline(always)]
     fn get_base_hash(&self, item: &[u8]) -> u64 {
-        gxhash::gxhash64(item, SEED as i64)
+        gxhash::gxhash64(item, SEED)
     }
 }
 
