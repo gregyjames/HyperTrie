@@ -5,3 +5,7 @@
 ## 2026-07-05 - [Case-Insensitive Trie Hashing and Stack Buffers]
 **Learning:** Normalizing strings on the heap during hot paths (like Trie traversal or Bloom Filter checks) adds significant allocation overhead. Using a stack-allocated buffer (e.g., 64 bytes) combined with a precomputed `CHAR_TO_BIT` lookup table eliminates these allocations and branches. Additionally, ensuring consistency between the Trie normalization and Bloom Filter hashing is critical to avoid "false negatives" where a word is in the Trie but the Bloom Filter says it's not due to case mismatch.
 **Action:** Use stack-allocated buffers and lookup tables for character normalization. Always normalize bytes before passing them to the Bloom Filter in case-insensitive Tries.
+
+## 2026-07-12 - [Direct Hashing and Bitmask Traversal]
+**Learning:** Direct calls to `gxhash64` bypass the stateful hasher overhead for small keys. Additive updates in double hashing loops (`hash += h2`) save multiplication cycles. Using `trailing_zeros` to iterate over a Trie node's bitmask is significantly faster than checking every potential child index.
+**Action:** Favor direct hash functions and bitmask-based iteration for hot path loops.
