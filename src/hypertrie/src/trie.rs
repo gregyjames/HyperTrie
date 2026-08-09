@@ -66,7 +66,7 @@ impl Trie {
             for &b in bytes {
                 let bit_idx = unsafe { *CHAR_TO_BIT.get_unchecked(b as usize) };
                 if bit_idx != 255 {
-                    stack_buf[filtered_len] = b'a' + bit_idx;
+                    stack_buf[filtered_len] = bit_idx;
                     filtered_len += 1;
                 }
             }
@@ -76,21 +76,21 @@ impl Trie {
             for &b in bytes {
                 let bit_idx = unsafe { *CHAR_TO_BIT.get_unchecked(b as usize) };
                 if bit_idx != 255 {
-                    v.push(b'a' + bit_idx);
+                    v.push(bit_idx);
                 }
             }
             Cow::Owned(v)
         };
 
-        for &b in normalized.as_ref() {
-            let bit_idx = (b - b'a') as usize;
+        for &bit_idx_u8 in normalized.as_ref() {
+            let bit_idx = bit_idx_u8 as usize;
 
             // Check if child exists using bitmask
             unsafe {
                 let node = self.nodes.get_unchecked(current_idx);
                 if (node.children_mask & (1 << bit_idx)) == 0 {
                     let new_node_idx = self.nodes.len() as u32;
-                    self.nodes.push(Node::new(b));
+                    self.nodes.push(Node::new(b'a' + bit_idx_u8));
 
                     // Update parent
                     let node = self.nodes.get_unchecked_mut(current_idx);
@@ -121,7 +121,7 @@ impl Trie {
             for &b in bytes {
                 let bit_idx = unsafe { *CHAR_TO_BIT.get_unchecked(b as usize) };
                 if bit_idx != 255 {
-                    stack_buf[filtered_len] = b'a' + bit_idx;
+                    stack_buf[filtered_len] = bit_idx;
                     filtered_len += 1;
                 }
             }
@@ -131,7 +131,7 @@ impl Trie {
             for &b in bytes {
                 let bit_idx = unsafe { *CHAR_TO_BIT.get_unchecked(b as usize) };
                 if bit_idx != 255 {
-                    v.push(b'a' + bit_idx);
+                    v.push(bit_idx);
                 }
             }
             Cow::Owned(v)
@@ -143,8 +143,8 @@ impl Trie {
         }
 
         let mut current_idx = 0;
-        for &b in normalized.as_ref() {
-            let bit_idx = (b - b'a') as usize;
+        for &bit_idx_u8 in normalized.as_ref() {
+            let bit_idx = bit_idx_u8 as usize;
 
             let node = unsafe { self.nodes.get_unchecked(current_idx) };
             if (node.children_mask & (1 << bit_idx)) == 0 {
@@ -292,5 +292,41 @@ mod tests {
 
         let unknowns = trie.words_with_prefix("unknown");
         assert!(unknowns.is_empty());
+    }
+
+    #[test]
+    fn test_trie_long_word() {
+        let mut trie = Trie::new(100, 3);
+        // A 70-character valid word to trigger the len > 64 path in both insert and contains
+        let long_word = "abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqr";
+        assert_eq!(long_word.len(), 70);
+
+        trie.insert(long_word);
+        assert!(trie.contains(long_word));
+    }
+
+    #[test]
+    fn test_trie_invalid_characters() {
+        let mut trie = Trie::new(100, 3);
+        // Word contains spaces, numbers, punctuation
+        trie.insert("hello 123 world!");
+
+        // This should be normalized to "helloworld"
+        assert!(trie.contains("helloworld"));
+        assert!(trie.contains("Hello 123 World!"));
+        assert!(!trie.contains("hello"));
+    }
+
+    #[test]
+    fn test_trie_long_word_with_invalid_characters() {
+        let mut trie = Trie::new(100, 3);
+        // A 77-character word with spaces and numbers
+        let long_word_raw =
+            "abc 123 def 456 ghi 789 jkl mno pqr stu vwx yz abc def ghi jkl mno pqr stu vwx";
+        let expected_normalized = "abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwx";
+
+        trie.insert(long_word_raw);
+        assert!(trie.contains(long_word_raw));
+        assert!(trie.contains(expected_normalized));
     }
 }
