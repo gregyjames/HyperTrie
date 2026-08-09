@@ -293,4 +293,39 @@ mod tests {
         let unknowns = trie.words_with_prefix("unknown");
         assert!(unknowns.is_empty());
     }
+
+    #[test]
+    fn test_trie_long_word() {
+        let mut trie = Trie::new(100, 3);
+        // A 70-character valid word to trigger the len > 64 path in both insert and contains
+        let long_word = "abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqr";
+        assert_eq!(long_word.len(), 70);
+
+        trie.insert(long_word);
+        assert!(trie.contains(long_word));
+    }
+
+    #[test]
+    fn test_trie_invalid_characters() {
+        let mut trie = Trie::new(100, 3);
+        // Word contains spaces, numbers, punctuation
+        trie.insert("hello 123 world!");
+
+        // This should be normalized to "helloworld"
+        assert!(trie.contains("helloworld"));
+        assert!(trie.contains("Hello 123 World!"));
+        assert!(!trie.contains("hello"));
+    }
+
+    #[test]
+    fn test_trie_long_word_with_invalid_characters() {
+        let mut trie = Trie::new(100, 3);
+        // A 77-character word with spaces and numbers
+        let long_word_raw = "abc 123 def 456 ghi 789 jkl mno pqr stu vwx yz abc def ghi jkl mno pqr stu vwx";
+        let expected_normalized = "abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwx";
+
+        trie.insert(long_word_raw);
+        assert!(trie.contains(long_word_raw));
+        assert!(trie.contains(expected_normalized));
+    }
 }
