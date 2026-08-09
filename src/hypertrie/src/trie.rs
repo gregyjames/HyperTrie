@@ -321,7 +321,8 @@ mod tests {
     fn test_trie_long_word_with_invalid_characters() {
         let mut trie = Trie::new(100, 3);
         // A 77-character word with spaces and numbers
-        let long_word_raw = "abc 123 def 456 ghi 789 jkl mno pqr stu vwx yz abc def ghi jkl mno pqr stu vwx";
+        let long_word_raw =
+            "abc 123 def 456 ghi 789 jkl mno pqr stu vwx yz abc def ghi jkl mno pqr stu vwx";
         let expected_normalized = "abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwx";
 
         trie.insert(long_word_raw);
