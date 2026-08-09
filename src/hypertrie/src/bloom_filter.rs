@@ -1,6 +1,4 @@
 use bit_vec::BitVec;
-use gxhash::GxHasher;
-use std::hash::Hasher;
 
 const SEED: i64 = 1846279233212321312;
 
@@ -23,10 +21,11 @@ impl BloomFilter {
         let h1 = self.get_base_hash(item);
         let h2 = h1.wrapping_mul(0x9e3779b97f4a7c15);
 
-        for i in 0..self.num_hashes {
-            let final_hash = h1.wrapping_add((i as u64).wrapping_mul(h2)) as usize;
-            let index = final_hash & (self.size - 1);
+        let mut hash = h1;
+        for _ in 0..self.num_hashes {
+            let index = (hash as usize) & (self.size - 1);
             self.bit_array.set(index, true);
+            hash = hash.wrapping_add(h2);
         }
     }
 
@@ -34,22 +33,21 @@ impl BloomFilter {
         let h1 = self.get_base_hash(item);
         let h2 = h1.wrapping_mul(0x9e3779b97f4a7c15);
 
-        for i in 0..self.num_hashes {
-            let final_hash = h1.wrapping_add((i as u64).wrapping_mul(h2)) as usize;
-            let index = final_hash & (self.size - 1);
+        let mut hash = h1;
+        for _ in 0..self.num_hashes {
+            let index = (hash as usize) & (self.size - 1);
 
             if !self.bit_array.get(index).unwrap_or(false) {
                 return false;
             }
+            hash = hash.wrapping_add(h2);
         }
         true // Maybe in the set (false positives possible)
     }
 
     #[inline(always)]
     fn get_base_hash(&self, item: &[u8]) -> u64 {
-        let mut hasher = GxHasher::with_seed(SEED);
-        hasher.write(item);
-        hasher.finish()
+        gxhash::gxhash64(item, SEED)
     }
 }
 
@@ -182,9 +180,10 @@ mod tests {
         let h1 = bf.get_base_hash(item);
         let h2 = h1.wrapping_mul(0x9e3779b97f4a7c15);
 
-        for i in 0..bf.num_hashes {
-            let final_hash = h1.wrapping_add((i as u64).wrapping_mul(h2)) as usize;
-            hashes.push(final_hash % bf.size);
+        let mut hash = h1;
+        for _ in 0..bf.num_hashes {
+            hashes.push((hash as usize) % bf.size);
+            hash = hash.wrapping_add(h2);
         }
         hashes
     }

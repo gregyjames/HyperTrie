@@ -66,7 +66,7 @@ impl Trie {
             for &b in bytes {
                 let bit_idx = unsafe { *CHAR_TO_BIT.get_unchecked(b as usize) };
                 if bit_idx != 255 {
-                    stack_buf[filtered_len] = b'a' + bit_idx;
+                    stack_buf[filtered_len] = bit_idx;
                     filtered_len += 1;
                 }
             }
@@ -76,21 +76,21 @@ impl Trie {
             for &b in bytes {
                 let bit_idx = unsafe { *CHAR_TO_BIT.get_unchecked(b as usize) };
                 if bit_idx != 255 {
-                    v.push(b'a' + bit_idx);
+                    v.push(bit_idx);
                 }
             }
             Cow::Owned(v)
         };
 
-        for &b in normalized.as_ref() {
-            let bit_idx = (b - b'a') as usize;
+        for &bit_idx_u8 in normalized.as_ref() {
+            let bit_idx = bit_idx_u8 as usize;
 
             // Check if child exists using bitmask
             unsafe {
                 let node = self.nodes.get_unchecked(current_idx);
                 if (node.children_mask & (1 << bit_idx)) == 0 {
                     let new_node_idx = self.nodes.len() as u32;
-                    self.nodes.push(Node::new(b));
+                    self.nodes.push(Node::new(b'a' + bit_idx_u8));
 
                     // Update parent
                     let node = self.nodes.get_unchecked_mut(current_idx);
@@ -121,7 +121,7 @@ impl Trie {
             for &b in bytes {
                 let bit_idx = unsafe { *CHAR_TO_BIT.get_unchecked(b as usize) };
                 if bit_idx != 255 {
-                    stack_buf[filtered_len] = b'a' + bit_idx;
+                    stack_buf[filtered_len] = bit_idx;
                     filtered_len += 1;
                 }
             }
@@ -131,7 +131,7 @@ impl Trie {
             for &b in bytes {
                 let bit_idx = unsafe { *CHAR_TO_BIT.get_unchecked(b as usize) };
                 if bit_idx != 255 {
-                    v.push(b'a' + bit_idx);
+                    v.push(bit_idx);
                 }
             }
             Cow::Owned(v)
@@ -143,8 +143,8 @@ impl Trie {
         }
 
         let mut current_idx = 0;
-        for &b in normalized.as_ref() {
-            let bit_idx = (b - b'a') as usize;
+        for &bit_idx_u8 in normalized.as_ref() {
+            let bit_idx = bit_idx_u8 as usize;
 
             let node = unsafe { self.nodes.get_unchecked(current_idx) };
             if (node.children_mask & (1 << bit_idx)) == 0 {
