@@ -294,4 +294,19 @@ mod tests {
         let unknowns = trie.words_with_prefix("unknown");
         assert!(unknowns.is_empty());
     }
+
+    #[test]
+    fn test_long_string_and_invalid_chars() {
+        let mut trie = Trie::new(1024, 3);
+        let long_word = "a".repeat(70) + "123!@#";
+        trie.insert(&long_word);
+        assert!(trie.contains(&long_word));
+        assert!(trie.contains(&"a".repeat(70)));
+        assert!(!trie.contains(&"a".repeat(69)));
+
+        let short_invalid = "hello123world!@#";
+        trie.insert(short_invalid);
+        assert!(trie.contains(short_invalid));
+        assert!(trie.contains("helloworld"));
+    }
 }
