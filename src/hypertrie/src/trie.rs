@@ -66,7 +66,7 @@ impl Trie {
             for &b in bytes {
                 let bit_idx = unsafe { *CHAR_TO_BIT.get_unchecked(b as usize) };
                 if bit_idx != 255 {
-                    stack_buf[filtered_len] = b'a' + bit_idx;
+                    stack_buf[filtered_len] = bit_idx;
                     filtered_len += 1;
                 }
             }
@@ -76,21 +76,21 @@ impl Trie {
             for &b in bytes {
                 let bit_idx = unsafe { *CHAR_TO_BIT.get_unchecked(b as usize) };
                 if bit_idx != 255 {
-                    v.push(b'a' + bit_idx);
+                    v.push(bit_idx);
                 }
             }
             Cow::Owned(v)
         };
 
         for &b in normalized.as_ref() {
-            let bit_idx = (b - b'a') as usize;
+            let bit_idx = b as usize;
 
             // Check if child exists using bitmask
             unsafe {
                 let node = self.nodes.get_unchecked(current_idx);
                 if (node.children_mask & (1 << bit_idx)) == 0 {
                     let new_node_idx = self.nodes.len() as u32;
-                    self.nodes.push(Node::new(b));
+                    self.nodes.push(Node::new(b'a' + b));
 
                     // Update parent
                     let node = self.nodes.get_unchecked_mut(current_idx);
@@ -121,7 +121,7 @@ impl Trie {
             for &b in bytes {
                 let bit_idx = unsafe { *CHAR_TO_BIT.get_unchecked(b as usize) };
                 if bit_idx != 255 {
-                    stack_buf[filtered_len] = b'a' + bit_idx;
+                    stack_buf[filtered_len] = bit_idx;
                     filtered_len += 1;
                 }
             }
@@ -131,7 +131,7 @@ impl Trie {
             for &b in bytes {
                 let bit_idx = unsafe { *CHAR_TO_BIT.get_unchecked(b as usize) };
                 if bit_idx != 255 {
-                    v.push(b'a' + bit_idx);
+                    v.push(bit_idx);
                 }
             }
             Cow::Owned(v)
@@ -144,7 +144,7 @@ impl Trie {
 
         let mut current_idx = 0;
         for &b in normalized.as_ref() {
-            let bit_idx = (b - b'a') as usize;
+            let bit_idx = b as usize;
 
             let node = unsafe { self.nodes.get_unchecked(current_idx) };
             if (node.children_mask & (1 << bit_idx)) == 0 {
@@ -231,17 +231,18 @@ impl Trie {
             }
         }
 
-        // Iterate through all possible children (a-z)
-        for i in 0..26 {
-            // Only recurse if the bitmask says a child exists
-            if (node.children_mask & (1 << i)) != 0 {
-                let child_idx = unsafe { *node.children_indices.get_unchecked(i) as usize };
+        // Iterate through active child nodes using trailing_zeros to skip empty slots
+        let mut mask = node.children_mask;
+        while mask != 0 {
+            let i = mask.trailing_zeros() as usize;
+            mask &= mask - 1; // Clear the lowest set bit
 
-                // Push the character for this branch
-                buffer.push(b'a' + i as u8);
-                self.collect_words_from_node(child_idx, buffer, results);
-                buffer.pop(); // Backtrack for the next branch
-            }
+            let child_idx = unsafe { *node.children_indices.get_unchecked(i) as usize };
+
+            // Push the character for this branch
+            buffer.push(b'a' + i as u8);
+            self.collect_words_from_node(child_idx, buffer, results);
+            buffer.pop(); // Backtrack for the next branch
         }
     }
 }
@@ -292,5 +293,20 @@ mod tests {
 
         let unknowns = trie.words_with_prefix("unknown");
         assert!(unknowns.is_empty());
+    }
+
+    #[test]
+    fn test_long_string_and_invalid_chars() {
+        let mut trie = Trie::new(1024, 3);
+        let long_word = "a".repeat(70) + "123!@#";
+        trie.insert(&long_word);
+        assert!(trie.contains(&long_word));
+        assert!(trie.contains(&"a".repeat(70)));
+        assert!(!trie.contains(&"a".repeat(69)));
+
+        let short_invalid = "hello123world!@#";
+        trie.insert(short_invalid);
+        assert!(trie.contains(short_invalid));
+        assert!(trie.contains("helloworld"));
     }
 }

@@ -1,6 +1,4 @@
 use bit_vec::BitVec;
-use gxhash::GxHasher;
-use std::hash::Hasher;
 
 const SEED: i64 = 1846279233212321312;
 
@@ -47,9 +45,7 @@ impl BloomFilter {
 
     #[inline(always)]
     fn get_base_hash(&self, item: &[u8]) -> u64 {
-        let mut hasher = GxHasher::with_seed(SEED);
-        hasher.write(item);
-        hasher.finish()
+        gxhash::gxhash64(item, SEED)
     }
 }
 
