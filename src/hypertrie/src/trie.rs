@@ -300,4 +300,17 @@ mod tests {
         let unknowns = trie.words_with_prefix("unknown");
         assert!(unknowns.is_empty());
     }
+
+    #[test]
+    fn test_long_string_heap_normalization() {
+        let mut trie = Trie::new(100, 3);
+        let long_word = "a".repeat(100);
+        trie.insert(&long_word);
+        assert!(trie.contains(&long_word));
+
+        let long_word_with_invalid = "a!".repeat(50); // 100 chars, includes invalid '!' (bit_idx 255)
+        trie.insert(&long_word_with_invalid);
+        assert!(trie.contains(&long_word_with_invalid));
+        assert!(trie.contains(&"a".repeat(50))); // Normalized '!' stripped out
+    }
 }
