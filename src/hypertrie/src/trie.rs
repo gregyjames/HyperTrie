@@ -288,4 +288,18 @@ mod tests {
         let unknowns = trie.words_with_prefix("unknown");
         assert!(unknowns.is_empty());
     }
+
+    #[test]
+    fn test_long_words_and_invalid_chars() {
+        let mut trie = Trie::new(100, 3);
+        let long_word = "a".repeat(70) + "123!@#" + &"b".repeat(70);
+        trie.insert(&long_word);
+
+        let expected_normalized = "a".repeat(70) + &"b".repeat(70);
+        assert!(trie.contains(&long_word));
+        assert!(trie.contains(&expected_normalized));
+        assert!(!trie.contains(&("a".repeat(70) + &"c".repeat(70))));
+
+        trie.print();
+    }
 }
