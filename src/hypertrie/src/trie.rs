@@ -16,16 +16,14 @@ static CHAR_TO_BIT: [u8; 256] = {
 };
 
 pub struct Node {
-    pub letter: u8,
     pub children_mask: u32,
     pub children_indices: [u32; 26],
     pub end_of_word: bool,
 }
 
 impl Node {
-    fn new(letter: u8) -> Self {
+    fn new() -> Self {
         Node {
-            letter,
             children_mask: 0,
             children_indices: [0; ALPHABET_SIZE],
             end_of_word: false,
@@ -46,7 +44,7 @@ impl Trie {
 
         // Heuristic: estimated nodes = size * avg word length (approx 7)
         let mut nodes = Vec::with_capacity(size.saturating_mul(7).max(1024));
-        nodes.push(Node::new(0));
+        nodes.push(Node::new());
 
         Trie {
             nodes,
@@ -66,7 +64,7 @@ impl Trie {
             for &b in bytes {
                 let bit_idx = unsafe { *CHAR_TO_BIT.get_unchecked(b as usize) };
                 if bit_idx != 255 {
-                    stack_buf[filtered_len] = b'a' + bit_idx;
+                    stack_buf[filtered_len] = bit_idx;
                     filtered_len += 1;
                 }
             }
@@ -76,21 +74,21 @@ impl Trie {
             for &b in bytes {
                 let bit_idx = unsafe { *CHAR_TO_BIT.get_unchecked(b as usize) };
                 if bit_idx != 255 {
-                    v.push(b'a' + bit_idx);
+                    v.push(bit_idx);
                 }
             }
             Cow::Owned(v)
         };
 
         for &b in normalized.as_ref() {
-            let bit_idx = (b - b'a') as usize;
+            let bit_idx = b as usize;
 
             // Check if child exists using bitmask
             unsafe {
                 let node = self.nodes.get_unchecked(current_idx);
                 if (node.children_mask & (1 << bit_idx)) == 0 {
                     let new_node_idx = self.nodes.len() as u32;
-                    self.nodes.push(Node::new(b));
+                    self.nodes.push(Node::new());
 
                     // Update parent
                     let node = self.nodes.get_unchecked_mut(current_idx);
@@ -121,7 +119,7 @@ impl Trie {
             for &b in bytes {
                 let bit_idx = unsafe { *CHAR_TO_BIT.get_unchecked(b as usize) };
                 if bit_idx != 255 {
-                    stack_buf[filtered_len] = b'a' + bit_idx;
+                    stack_buf[filtered_len] = bit_idx;
                     filtered_len += 1;
                 }
             }
@@ -131,7 +129,7 @@ impl Trie {
             for &b in bytes {
                 let bit_idx = unsafe { *CHAR_TO_BIT.get_unchecked(b as usize) };
                 if bit_idx != 255 {
-                    v.push(b'a' + bit_idx);
+                    v.push(bit_idx);
                 }
             }
             Cow::Owned(v)
@@ -144,7 +142,7 @@ impl Trie {
 
         let mut current_idx = 0;
         for &b in normalized.as_ref() {
-            let bit_idx = (b - b'a') as usize;
+            let bit_idx = b as usize;
 
             let node = unsafe { self.nodes.get_unchecked(current_idx) };
             if (node.children_mask & (1 << bit_idx)) == 0 {
@@ -158,20 +156,17 @@ impl Trie {
 
     pub fn print(&self) {
         // Start at index 0 (the root)
-        self.debug_print(0, 0);
+        self.debug_print(0, ' ', 0);
     }
 
-    fn debug_print(&self, node_idx: usize, indent: usize) {
+    fn debug_print(&self, node_idx: usize, ch: char, indent: usize) {
         let node = &self.nodes[node_idx];
         let padding = "  ".repeat(indent);
 
         if node_idx == 0 {
             println!("Root");
         } else {
-            println!(
-                "{}'{}' (end_of_word: {})",
-                padding, node.letter as char, node.end_of_word
-            );
+            println!("{}'{}' (end_of_word: {})", padding, ch, node.end_of_word);
         }
 
         // Since we are using a bitmask and an index array, we iterate
@@ -179,7 +174,7 @@ impl Trie {
         for i in 0..26 {
             if (node.children_mask & (1 << i)) != 0 {
                 let child_idx = node.children_indices[i] as usize;
-                self.debug_print(child_idx, indent + 1);
+                self.debug_print(child_idx, (b'a' + i as u8) as char, indent + 1);
             }
         }
     }
