@@ -22,25 +22,29 @@ impl BloomFilter {
     pub fn insert(&mut self, item: &[u8]) {
         let h1 = self.get_base_hash(item);
         let h2 = h1.wrapping_mul(0x9e3779b97f4a7c15);
+        let mask = self.size - 1;
 
-        for i in 0..self.num_hashes {
-            let final_hash = h1.wrapping_add((i as u64).wrapping_mul(h2)) as usize;
-            let index = final_hash & (self.size - 1);
+        let mut final_hash = h1;
+        for _ in 0..self.num_hashes {
+            let index = (final_hash as usize) & mask;
             self.bit_array.set(index, true);
+            final_hash = final_hash.wrapping_add(h2);
         }
     }
 
     pub fn contains(&self, item: &[u8]) -> bool {
         let h1 = self.get_base_hash(item);
         let h2 = h1.wrapping_mul(0x9e3779b97f4a7c15);
+        let mask = self.size - 1;
 
-        for i in 0..self.num_hashes {
-            let final_hash = h1.wrapping_add((i as u64).wrapping_mul(h2)) as usize;
-            let index = final_hash & (self.size - 1);
+        let mut final_hash = h1;
+        for _ in 0..self.num_hashes {
+            let index = (final_hash as usize) & mask;
 
             if !self.bit_array.get(index).unwrap_or(false) {
                 return false;
             }
+            final_hash = final_hash.wrapping_add(h2);
         }
         true // Maybe in the set (false positives possible)
     }
