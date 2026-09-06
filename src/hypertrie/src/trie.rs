@@ -305,4 +305,32 @@ mod tests {
         let unknowns = trie.words_with_prefix("unknown");
         assert!(unknowns.is_empty());
     }
+
+    #[test]
+    fn test_long_string_and_invalid_chars() {
+        let mut trie = Trie::new(100, 3);
+
+        // String > 64 bytes to exercise len > 64 heap-allocation path
+        let long_word = "a".repeat(70) + "b";
+        trie.insert(&long_word);
+        assert!(trie.contains(&long_word));
+
+        // String with invalid non-alphabet characters
+        let word_with_symbols = "hello-world_123!";
+        trie.insert(word_with_symbols);
+        assert!(trie.contains("helloworld"));
+        assert!(trie.contains(word_with_symbols));
+
+        // Prefix with invalid characters
+        let pref = trie.words_with_prefix("hel-lo!");
+        assert!(!pref.is_empty());
+    }
+
+    #[test]
+    fn test_debug_print() {
+        let mut trie = Trie::new(100, 3);
+        trie.insert("cat");
+        trie.insert("car");
+        trie.print();
+    }
 }
