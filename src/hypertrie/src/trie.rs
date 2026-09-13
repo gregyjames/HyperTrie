@@ -293,4 +293,24 @@ mod tests {
         let unknowns = trie.words_with_prefix("unknown");
         assert!(unknowns.is_empty());
     }
+
+    #[test]
+    fn test_long_string_exceeding_64_bytes() {
+        let mut trie = Trie::new(1024, 3);
+        let long_word = "a".repeat(70) + "bc123!@#$";
+        let expected = "a".repeat(70) + "bc";
+        trie.insert(&long_word);
+
+        assert!(trie.contains(&long_word));
+        assert!(trie.contains(&expected));
+        assert!(!trie.contains(&("a".repeat(70) + "bd")));
+    }
+
+    #[test]
+    fn test_invalid_character_filtering() {
+        let mut trie = Trie::new(100, 3);
+        trie.insert("hello-world_123!");
+        assert!(trie.contains("helloworld"));
+        assert!(trie.contains("HELLO-WORLD_123!"));
+    }
 }
