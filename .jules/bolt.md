@@ -5,3 +5,7 @@
 ## 2026-07-05 - [Case-Insensitive Trie Hashing and Stack Buffers]
 **Learning:** Normalizing strings on the heap during hot paths (like Trie traversal or Bloom Filter checks) adds significant allocation overhead. Using a stack-allocated buffer (e.g., 64 bytes) combined with a precomputed `CHAR_TO_BIT` lookup table eliminates these allocations and branches. Additionally, ensuring consistency between the Trie normalization and Bloom Filter hashing is critical to avoid "false negatives" where a word is in the Trie but the Bloom Filter says it's not due to case mismatch.
 **Action:** Use stack-allocated buffers and lookup tables for character normalization. Always normalize bytes before passing them to the Bloom Filter in case-insensitive Tries.
+
+## 2026-09-13 - [Direct GxHash and Bit-Index Normalization]
+**Learning:** Using `gxhash::gxhash64` directly avoids the trait wrapper overhead of `GxHasher`. Furthermore, storing direct 0..25 bit indices in normalized buffers (rather than converting to ASCII `'a'..'z'` and back) removes redundant additions and subtractions in Trie lookups without affecting Bloom Filter correctness.
+**Action:** Call direct slice hash functions like `gxhash64` instead of constructing hasher structs in hot paths, and keep internal string representations as direct array/bit indices where possible.
