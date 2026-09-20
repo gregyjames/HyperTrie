@@ -299,4 +299,23 @@ mod tests {
         let unknowns = trie.words_with_prefix("unknown");
         assert!(unknowns.is_empty());
     }
+
+    #[test]
+    fn test_long_word_exceeding_stack_buffer() {
+        let mut trie = Trie::new(1024, 3);
+        let long_word = "a".repeat(70);
+        trie.insert(&long_word);
+        assert!(trie.contains(&long_word));
+
+        let non_member = "a".repeat(69) + "b";
+        assert!(!trie.contains(&non_member));
+    }
+
+    #[test]
+    fn test_invalid_characters_filtered() {
+        let mut trie = Trie::new(100, 3);
+        trie.insert("hello!123_world");
+        assert!(trie.contains("helloworld"));
+        assert!(trie.contains("hello!123_world"));
+    }
 }
