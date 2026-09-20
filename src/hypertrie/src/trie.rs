@@ -3,6 +3,7 @@ use std::borrow::Cow;
 use crate::bloom_filter::BloomFilter;
 
 const ALPHABET_SIZE: usize = 26;
+const END_OF_WORD_MASK: u32 = 1 << 31;
 
 static CHAR_TO_BIT: [u8; 256] = {
     let mut table = [255u8; 256];
@@ -16,20 +17,26 @@ static CHAR_TO_BIT: [u8; 256] = {
 };
 
 pub struct Node {
-    pub letter: u8,
     pub children_mask: u32,
     pub children_indices: [u32; 26],
-    pub end_of_word: bool,
 }
 
 impl Node {
-    fn new(letter: u8) -> Self {
+    fn new() -> Self {
         Node {
-            letter,
             children_mask: 0,
             children_indices: [0; ALPHABET_SIZE],
-            end_of_word: false,
         }
+    }
+
+    #[inline(always)]
+    fn is_end_of_word(&self) -> bool {
+        (self.children_mask & END_OF_WORD_MASK) != 0
+    }
+
+    #[inline(always)]
+    fn set_end_of_word(&mut self) {
+        self.children_mask |= END_OF_WORD_MASK;
     }
 }
 
@@ -46,7 +53,7 @@ impl Trie {
 
         // Heuristic: estimated nodes = size * avg word length (approx 7)
         let mut nodes = Vec::with_capacity(size.saturating_mul(7).max(1024));
-        nodes.push(Node::new(0));
+        nodes.push(Node::new());
 
         Trie {
             nodes,
@@ -59,14 +66,15 @@ impl Trie {
         let bytes = word.as_bytes();
         let len = bytes.len();
 
-        // Use stack buffer for normalization and filtering if word is short enough
+        // Use stack buffer for normalization and filtering if word is short enough.
+        // Direct bit indices (0..25) are stored to avoid runtime offset math.
         let mut stack_buf = [0u8; 64];
         let mut filtered_len = 0;
         let normalized: Cow<[u8]> = if len <= 64 {
             for &b in bytes {
                 let bit_idx = unsafe { *CHAR_TO_BIT.get_unchecked(b as usize) };
                 if bit_idx != 255 {
-                    stack_buf[filtered_len] = b'a' + bit_idx;
+                    stack_buf[filtered_len] = bit_idx;
                     filtered_len += 1;
                 }
             }
@@ -76,21 +84,21 @@ impl Trie {
             for &b in bytes {
                 let bit_idx = unsafe { *CHAR_TO_BIT.get_unchecked(b as usize) };
                 if bit_idx != 255 {
-                    v.push(b'a' + bit_idx);
+                    v.push(bit_idx);
                 }
             }
             Cow::Owned(v)
         };
 
-        for &b in normalized.as_ref() {
-            let bit_idx = (b - b'a') as usize;
+        for &bit in normalized.as_ref() {
+            let bit_idx = bit as usize;
 
             // Check if child exists using bitmask
             unsafe {
                 let node = self.nodes.get_unchecked(current_idx);
                 if (node.children_mask & (1 << bit_idx)) == 0 {
                     let new_node_idx = self.nodes.len() as u32;
-                    self.nodes.push(Node::new(b));
+                    self.nodes.push(Node::new());
 
                     // Update parent
                     let node = self.nodes.get_unchecked_mut(current_idx);
@@ -105,7 +113,7 @@ impl Trie {
         }
 
         unsafe {
-            self.nodes.get_unchecked_mut(current_idx).end_of_word = true;
+            self.nodes.get_unchecked_mut(current_idx).set_end_of_word();
         }
         self.bloom_filter.insert(&normalized);
     }
@@ -121,7 +129,7 @@ impl Trie {
             for &b in bytes {
                 let bit_idx = unsafe { *CHAR_TO_BIT.get_unchecked(b as usize) };
                 if bit_idx != 255 {
-                    stack_buf[filtered_len] = b'a' + bit_idx;
+                    stack_buf[filtered_len] = bit_idx;
                     filtered_len += 1;
                 }
             }
@@ -131,7 +139,7 @@ impl Trie {
             for &b in bytes {
                 let bit_idx = unsafe { *CHAR_TO_BIT.get_unchecked(b as usize) };
                 if bit_idx != 255 {
-                    v.push(b'a' + bit_idx);
+                    v.push(bit_idx);
                 }
             }
             Cow::Owned(v)
@@ -143,8 +151,8 @@ impl Trie {
         }
 
         let mut current_idx = 0;
-        for &b in normalized.as_ref() {
-            let bit_idx = (b - b'a') as usize;
+        for &bit in normalized.as_ref() {
+            let bit_idx = bit as usize;
 
             let node = unsafe { self.nodes.get_unchecked(current_idx) };
             if (node.children_mask & (1 << bit_idx)) == 0 {
@@ -153,7 +161,7 @@ impl Trie {
             current_idx = unsafe { *node.children_indices.get_unchecked(bit_idx) as usize };
         }
 
-        unsafe { self.nodes.get_unchecked(current_idx).end_of_word }
+        unsafe { self.nodes.get_unchecked(current_idx).is_end_of_word() }
     }
 
     pub fn print(&self) {
@@ -167,18 +175,16 @@ impl Trie {
 
         if node_idx == 0 {
             println!("Root");
-        } else {
-            println!(
-                "{}'{}' (end_of_word: {})",
-                padding, node.letter as char, node.end_of_word
-            );
         }
 
-        // Since we are using a bitmask and an index array, we iterate
-        // through the alphabet and check the mask.
+        // Iterate through the alphabet and check the bitmask.
         for i in 0..26 {
             if (node.children_mask & (1 << i)) != 0 {
                 let child_idx = node.children_indices[i] as usize;
+                let child_node = &self.nodes[child_idx];
+                let is_end = child_node.is_end_of_word();
+                let char_val = (b'a' + i as u8) as char;
+                println!("{}'{}' (end_of_word: {})", padding, char_val, is_end);
                 self.debug_print(child_idx, indent + 1);
             }
         }
@@ -223,7 +229,7 @@ impl Trie {
         let node = unsafe { self.nodes.get_unchecked(node_idx) };
 
         // If this node marks the end of a word, save the current buffer
-        if node.end_of_word {
+        if node.is_end_of_word() {
             // SAFETY: The trie only contains valid lowercase ASCII letters 'a'-'z'
             // and characters from the initial prefix (also normalized).
             unsafe {
@@ -292,5 +298,24 @@ mod tests {
 
         let unknowns = trie.words_with_prefix("unknown");
         assert!(unknowns.is_empty());
+    }
+
+    #[test]
+    fn test_long_word_exceeding_stack_buffer() {
+        let mut trie = Trie::new(1024, 3);
+        let long_word = "a".repeat(70);
+        trie.insert(&long_word);
+        assert!(trie.contains(&long_word));
+
+        let non_member = "a".repeat(69) + "b";
+        assert!(!trie.contains(&non_member));
+    }
+
+    #[test]
+    fn test_invalid_characters_filtered() {
+        let mut trie = Trie::new(100, 3);
+        trie.insert("hello!123_world");
+        assert!(trie.contains("helloworld"));
+        assert!(trie.contains("hello!123_world"));
     }
 }
