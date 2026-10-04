@@ -20,3 +20,6 @@ src/hypertrie/target/
 src/HyperTrieCore.Tests/coverage.cobertura.xml
 
 src/HyperTrieCore.Tests/TestResults/
+build/bin/
+build/obj/
+BenchmarkDotNet.Artifacts/
