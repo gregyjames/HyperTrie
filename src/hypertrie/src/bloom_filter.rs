@@ -8,7 +8,7 @@ pub struct BloomFilter {
 
 impl BloomFilter {
     pub fn new(size: usize, num_hashes: usize) -> Self {
-        let num_words = (size + 63) / 64;
+        let num_words = size.div_ceil(64);
         BloomFilter {
             bit_array: vec![0u64; num_words],
             size,
