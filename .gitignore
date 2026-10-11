@@ -1,4 +1,3 @@
-
 hypertrie/target/
 
 HyperTrieCore/.idea/
@@ -20,3 +19,7 @@ src/hypertrie/target/
 src/HyperTrieCore.Tests/coverage.cobertura.xml
 
 src/HyperTrieCore.Tests/TestResults/
+
+BenchmarkDotNet.Artifacts/
+build/bin/
+build/obj/
