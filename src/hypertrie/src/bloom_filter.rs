@@ -1,19 +1,18 @@
-use bit_vec::BitVec;
-use gxhash::GxHasher;
-use std::hash::Hasher;
-
 const SEED: i64 = 1846279233212321312;
 
+/// High-performance Bloom Filter using direct `Vec<u64>` bit arrays and `gxhash64`.
 pub struct BloomFilter {
-    bit_array: BitVec,
+    bit_array: Vec<u64>,
     size: usize,
     num_hashes: usize,
 }
 
 impl BloomFilter {
     pub fn new(size: usize, num_hashes: usize) -> Self {
+        let size = size.max(1).next_power_of_two();
+        let num_words = size.div_ceil(64);
         BloomFilter {
-            bit_array: BitVec::from_elem(size, false),
+            bit_array: vec![0u64; num_words],
             size,
             num_hashes,
         }
@@ -22,34 +21,43 @@ impl BloomFilter {
     pub fn insert(&mut self, item: &[u8]) {
         let h1 = self.get_base_hash(item);
         let h2 = h1.wrapping_mul(0x9e3779b97f4a7c15);
+        let mut hash = h1;
 
-        for i in 0..self.num_hashes {
-            let final_hash = h1.wrapping_add((i as u64).wrapping_mul(h2)) as usize;
-            let index = final_hash & (self.size - 1);
-            self.bit_array.set(index, true);
+        for _ in 0..self.num_hashes {
+            let index = (hash as usize) & (self.size - 1);
+            let word_idx = index >> 6;
+            let bit_idx = index & 63;
+            // SAFETY: `size` is a power of 2 and `index` < `size`, so `word_idx` < `bit_array.len()`.
+            unsafe {
+                *self.bit_array.get_unchecked_mut(word_idx) |= 1u64 << bit_idx;
+            }
+            hash = hash.wrapping_add(h2);
         }
     }
 
     pub fn contains(&self, item: &[u8]) -> bool {
         let h1 = self.get_base_hash(item);
         let h2 = h1.wrapping_mul(0x9e3779b97f4a7c15);
+        let mut hash = h1;
 
-        for i in 0..self.num_hashes {
-            let final_hash = h1.wrapping_add((i as u64).wrapping_mul(h2)) as usize;
-            let index = final_hash & (self.size - 1);
-
-            if !self.bit_array.get(index).unwrap_or(false) {
-                return false;
+        for _ in 0..self.num_hashes {
+            let index = (hash as usize) & (self.size - 1);
+            let word_idx = index >> 6;
+            let bit_idx = index & 63;
+            // SAFETY: `size` is a power of 2 and `index` < `size`, so `word_idx` < `bit_array.len()`.
+            unsafe {
+                if (*self.bit_array.get_unchecked(word_idx) & (1u64 << bit_idx)) == 0 {
+                    return false;
+                }
             }
+            hash = hash.wrapping_add(h2);
         }
         true // Maybe in the set (false positives possible)
     }
 
     #[inline(always)]
     fn get_base_hash(&self, item: &[u8]) -> u64 {
-        let mut hasher = GxHasher::with_seed(SEED);
-        hasher.write(item);
-        hasher.finish()
+        gxhash::gxhash64(item, SEED)
     }
 }
 
