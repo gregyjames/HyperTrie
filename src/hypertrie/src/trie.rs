@@ -174,13 +174,13 @@ impl Trie {
             );
         }
 
-        // Since we are using a bitmask and an index array, we iterate
-        // through the alphabet and check the mask.
-        for i in 0..26 {
-            if (node.children_mask & (1 << i)) != 0 {
-                let child_idx = node.children_indices[i] as usize;
-                self.debug_print(child_idx, indent + 1);
-            }
+        // Iterate through present children using bitwise trailing zeros to skip inactive branches.
+        let mut mask = node.children_mask;
+        while mask != 0 {
+            let i = mask.trailing_zeros() as usize;
+            let child_idx = node.children_indices[i] as usize;
+            self.debug_print(child_idx, indent + 1);
+            mask &= mask - 1;
         }
     }
 
@@ -231,17 +231,19 @@ impl Trie {
             }
         }
 
-        // Iterate through all possible children (a-z)
-        for i in 0..26 {
-            // Only recurse if the bitmask says a child exists
-            if (node.children_mask & (1 << i)) != 0 {
-                let child_idx = unsafe { *node.children_indices.get_unchecked(i) as usize };
+        // Iterate through present children using bitwise trailing zeros on children_mask.
+        // This avoids checking all 26 alphabet indices when nodes are sparse.
+        let mut mask = node.children_mask;
+        while mask != 0 {
+            let i = mask.trailing_zeros() as usize;
+            let child_idx = unsafe { *node.children_indices.get_unchecked(i) as usize };
 
-                // Push the character for this branch
-                buffer.push(b'a' + i as u8);
-                self.collect_words_from_node(child_idx, buffer, results);
-                buffer.pop(); // Backtrack for the next branch
-            }
+            // Push the character for this branch
+            buffer.push(b'a' + i as u8);
+            self.collect_words_from_node(child_idx, buffer, results);
+            buffer.pop(); // Backtrack for the next branch
+
+            mask &= mask - 1;
         }
     }
 }
